@@ -30,10 +30,10 @@ parser.add_argument(
     "-a",
     help="Sequence of pairs of angles to produce.",
     dest='angles',
+    metavar="AZIMUTH,ZENITH",
     type=pair,
     required=True,
     nargs="+"
 )
-
 
 args = parser.parse_args(argv[1:])

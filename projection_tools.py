@@ -2,10 +2,16 @@
 
 import logging
 import numpy as np
+import os
 
 from osgeo import gdal, gdal_array
 from scipy.ndimage import rotate
 from scipy.signal  import medfilt2d
+
+# TODO temp
+import torch
+import matplotlib.pyplot as plt
+# TODO temp
 
 from multiprocessing import Process, RawArray
 from tqdm import tqdm
@@ -24,25 +30,98 @@ logging.basicConfig(
     datefmt='%H:%M:%S %b%d'
 )
 
-class LCP_shifter:
+"""
+
+# TODO
+
+Things to solve:
+
+1. DSM is cut in tiles.
+2. Each tile is processed separately.
+3. Rotation changes tile dimensions.
+4. # TODO Where should those resized tiles be written?
+5. How are they going to be moisaiced back without gaps?
+
+Note 1:
+    Create target tif immediately and start writing
+    tile by tile. Should save copy time.
+
+Note 2:
+    Do not use the to_tiles function, since every tile has
+    to be processed individually anyway. It appears to be more
+    expensive because the entire DSM has to be copied.
+    -- A multithreaded approach could make more sense instead. --
+
+"""
+
+
+class LCPshifter:
     def __init__(self) -> None:
         pass
     
-    def __develop_line__(self, line):
+    def __get_shared_array__(self, ref_array):
+        shape = ref_array.shape
         pass
     
-    def __develop_tile__(self, tile):
+    def __do_line__(self, line):
         pass
     
-    def __format_tiles__(self, image):
+    def __line_multiprocessing__(self, tile):
         pass
+    
+    def __do_tile__(self, tile, angle):
+        azim, zen      = angle
+        rotation_angle = azim 
+        
+        "This is a copy"
+        tile = rotate(tile, rotation_angle)
+        
+        "Do stuff with it"
+        tile = self.__line_multiprocessing__(tile)
+        
+        "Rotate back to origin && avoid copy"
+        tile[:, :] = rotate(tile, -rotation_angle)
+        
+        pass
+    
+    def __get_tile__(self, idx):
+        pass
+    
+    def __pad_array__(self, array):
+        pass
+    
+    def __get_out_size__(self, tile_shape):
+        """
+        Use this to get the full output dimensions.
+        Accounts for padded tiles and overlapping.
+        """
+        pass
+    
+    def __do_angle__(self, angle, tiles):
+        for tile in tiles:
+            self.__do_tile__(tile, angle)
     
     def __mosaic__(self, tiles):
         pass
     
-    def __load_image__(self):
-        pass
+    def __load_array__(self, path):
+        return gdal_array.LoadFile(path)
     
+    def __get_handle__(self, path):
+        return gdal.Open(path)
+    
+    def __clean_array__(self, array):
+        array[array < 0] = 0;
+    
+    def __main__(self):
+        
+        dsm = self.__load_array__(args.dsm)
+        self.__clean_array__(dsm)
+        dsm = to_tiles(dsm, args.ts)
+        
+        for angle in args.angles:
+            self.__do_angle__(angle, dsm)
+        
 
 class Shadow_Projector:
     def cast_shadows(self, num_p: int):
@@ -202,29 +281,29 @@ class Shadow_Projector:
         shared[:, :] = self.bh_array
         return shared
         
-    def azimuth_shift(self, img: torch.Tensor):
-        """
-        Turn the image as if the azimuth were zero.
-        """
-        return F.affine(
-            img.unsqueeze(0),
-            -self.sun_angles['azimuth'].item(),
-            [0., 0.],
-            1.,
-            [0., 0.],
-        ).squeeze(0)
+    # def azimuth_shift(self, img: torch.Tensor):
+    #     """
+    #     Turn the image as if the azimuth were zero.
+    #     """
+    #     return F.affine(
+    #         img.unsqueeze(0),
+    #         -self.sun_angles['azimuth'].item(),
+    #         [0., 0.],
+    #         1.,
+    #         [0., 0.],
+    #     ).squeeze(0)
     
-    def azimuth_unshift(self, img: torch.Tensor):
-        """
-        Turn the image back to the original azimuth.
-        """
-        return F.affine(
-            img.unsqueeze(0),
-            self.sun_angles['azimuth'].item(),
-            [0., 0.],
-            1.,
-            [0., 0.],
-        ).squeeze(0)
+    # def azimuth_unshift(self, img: torch.Tensor):
+    #     """
+    #     Turn the image back to the original azimuth.
+    #     """
+    #     return F.affine(
+    #         img.unsqueeze(0),
+    #         self.sun_angles['azimuth'].item(),
+    #         [0., 0.],
+    #         1.,
+    #         [0., 0.],
+    #     ).squeeze(0)
     
     def remove_footprints(self):
         """
