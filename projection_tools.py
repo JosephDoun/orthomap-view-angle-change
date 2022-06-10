@@ -57,7 +57,7 @@ Note 2:
 
 class LCPshifter:
     def __init__(self) -> None:
-        pass
+        self.tile_size = args.ts;
     
     def __get_shared_array__(self, ref_array):
         shape = ref_array.shape
@@ -84,8 +84,21 @@ class LCPshifter:
         
         pass
     
-    def __get_tile__(self, idx):
+    def __get_tile__(self, idx, array):
+        """
+        Transform idx to slice.
+        Apply on array and return tile.
+        """
         pass
+    
+    def __tile_len__(self):
+        num_tiles = (
+            -( -self.rows // self.tile_size) * -(-self.cols // self.tile_size)
+            )
+        return num_tiles
+    
+    def __vstride__(self):
+        return -(-self.cols // self.tile_size)
     
     def __pad_array__(self, array):
         pass
@@ -110,18 +123,63 @@ class LCPshifter:
     def __get_handle__(self, path):
         return gdal.Open(path)
     
-    def __clean_array__(self, array):
-        array[array < 0] = 0;
+    def __format_array__(self, array):
+        array[array < 0] = 0
+        tile_size = self.tile_size
+        return np.pad(
+            array, (
+                (0,
+                 int((tile_size - array.shape[-2] % tile_size))*
+                 bool(array.shape[-2]%tile_size)),
+                (0,
+                 int((tile_size - array.shape[-1] % tile_size))*
+                 bool(array.shape[-2]%tile_size))
+            ),
+            constant_values=-1
+        )
     
+    def __probe__(self, path):
+        f         = self.__get_handle__(path)
+        self.rows = f.RasterYSize
+        self.cols = f.RasterXSize
+        self.f    = f
+        
     def __main__(self):
         
         dsm = self.__load_array__(args.dsm)
-        self.__clean_array__(dsm)
-        dsm = to_tiles(dsm, args.ts)
+        dsm = self.__format_array__(dsm)
+        # dsm = to_tiles(dsm, args.ts)
         
         for angle in args.angles:
             self.__do_angle__(angle, dsm)
         
+
+class Image:
+    def __init__(self, path, tile_size) -> None:
+        handle    = gdal.Open(path)
+        self.path = path
+        self.rows = handle.RasterYSize
+        self.cols = handle.RasterXSize
+        
+        self.vstride   = -(-self.cols // tile_size)
+        self.length    = self.vstride * -(-self.rows // tile_size)
+        self.tile_size = tile_size
+        
+    def __len__(self):
+        return self.length
+    
+    def __getitem__(self, idx):
+        row = idx // self.vstride
+        col = idx % self.vstride
+        
+        offx = self.tile_size*col
+        offy = self.tile_size*row
+        
+        xsize = min(self.tile_size, self.cols - col*self.tile_size)
+        ysize = min(self.tile_size, self.rows - row*self.tile_size)
+        
+        return gdal_array.LoadFile(self.path, offx, offy, xsize, ysize)
+
 
 class Shadow_Projector:
     def cast_shadows(self, num_p: int):
