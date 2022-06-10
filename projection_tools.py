@@ -84,44 +84,18 @@ class LCPshifter:
         
         pass
     
-    def __get_tile__(self, idx, array):
-        """
-        Transform idx to slice.
-        Apply on array and return tile.
-        """
-        pass
-    
-    def __tile_len__(self):
-        num_tiles = (
-            -( -self.rows // self.tile_size) * -(-self.cols // self.tile_size)
-            )
-        return num_tiles
-    
-    def __vstride__(self):
-        return -(-self.cols // self.tile_size)
-    
-    def __pad_array__(self, array):
-        pass
-    
-    def __get_out_size__(self, tile_shape):
+    def __get_out_size__(self, image):
         """
         Use this to get the full output dimensions.
         Accounts for padded tiles and overlapping.
+        
+        # TODO
         """
-        pass
+        xsize = image.tile_size * (image.vstride - 1)
     
     def __do_angle__(self, angle, tiles):
         for tile in tiles:
             self.__do_tile__(tile, angle)
-    
-    def __mosaic__(self, tiles):
-        pass
-    
-    def __load_array__(self, path):
-        return gdal_array.LoadFile(path)
-    
-    def __get_handle__(self, path):
-        return gdal.Open(path)
     
     def __format_array__(self, array):
         array[array < 0] = 0
@@ -146,16 +120,19 @@ class LCPshifter:
         
     def __main__(self):
         
-        dsm = self.__load_array__(args.dsm)
+        dsm = Image(args.dsm)
         dsm = self.__format_array__(dsm)
-        # dsm = to_tiles(dsm, args.ts)
         
         for angle in args.angles:
             self.__do_angle__(angle, dsm)
         
 
 class Image:
-    def __init__(self, path, tile_size) -> None:
+    """
+    Class to be reading large geo-images
+    tile by tile through subscription.
+    """
+    def __init__(self, path, tile_size=1024) -> None:
         handle    = gdal.Open(path)
         self.path = path
         self.rows = handle.RasterYSize
