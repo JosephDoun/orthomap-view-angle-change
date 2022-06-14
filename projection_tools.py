@@ -1,6 +1,6 @@
-#!/usr/bin/python3
 
 import logging
+from unicodedata import name
 import numpy as np
 import os
 
@@ -15,11 +15,11 @@ import matplotlib.pyplot as plt
 
 from multiprocessing import Process, RawArray
 from tqdm import tqdm
-from argparser import args
-from tiling import to_tiles, from_tiles
+from typing import Tuple
 
-# import torch.nn.functional as nn_F
-# import torchvision.transforms.functional as F
+
+if __name__ == 'main':
+    from argparser import args
 
 logger = logging.getLogger("ProjectionTools.py");
 logger.setLevel(logging.INFO);
@@ -36,26 +36,15 @@ logging.basicConfig(
 
 Things to solve:
 
-1. DSM is cut in tiles.
-2. Each tile is processed separately.
-3. Rotation changes tile dimensions.
-4. # TODO Where should those resized tiles be written?
-5. How are they going to be moisaiced back without gaps?
-
-Note 1:
-    Create target tif immediately and start writing
-    tile by tile. Should save copy time.
-
-Note 2:
-    Do not use the to_tiles function, since every tile has
-    to be processed individually anyway. It appears to be more
-    expensive because the entire DSM has to be copied.
-    -- A multithreaded approach could make more sense instead. --
+1. Output is handled by Image class
+2. Same dimensions approximately as input Image.
+3. Same GeoTransform and Projection of input Image.
+4. Exception constitutes rounding due to resolution change.
 
 """
 
 
-class LCPshifter:
+class Projector:
     def __init__(self) -> None:
         self.tile_size = args.ts;
     
@@ -70,6 +59,12 @@ class LCPshifter:
         pass
     
     def __do_tile__(self, tile, angle):
+        """
+        Tile handling process.
+        
+        # TODO
+        """
+        
         azim, zen      = angle
         rotation_angle = azim 
         
@@ -84,41 +79,69 @@ class LCPshifter:
         
         pass
     
-    def __get_out_size__(self, image):
+    def __get_overlap(self, image, angle):
         """
         Use this to get the full output dimensions.
         Accounts for padded tiles and overlapping.
         
         # TODO
+        # ORIGIN SHOULD NOT CHANGE.
+        # THE ROTATION PADDING MUST BE UNDONE.
+        # AT LEAST FROM THE WEST AND NORTH SIDES
+        # OF THE IMAGE.
+        # TODO
+        # THIS METHOD WILL BE PASSED TO IMAGE CLASS.
+        
         """
-        xsize = image.tile_size * (image.vstride - 1)
+
+        # Get dimensions of key tiles
+        fshape = rotate(image[0], angle=angle).shape
+        pshape = rotate(
+            image[image.length - image.vstride], angle=angle
+        ).shape
+        
+        # Get the estimated total padding from rotation
+        fpad = (fshape[0] - image.tile_size,
+                fshape[1] - image.tile_size)
+        ppad = (
+                pshape[0] - image.tile_size,
+                pshape[1] - image.tile_size
+            )
+        
+        # Get left, right pad estimates for each dimension.
+        fpad_h = (
+             (fpad[0] // 2, fpad[0] - fpad[0] // 2),
+             (fpad[1] // 2, fpad[1] - fpad[1] // 2)
+            )
+
+        xsize = (
+            # Full tile shape minus right padding
+            fshape[1] - fpad_h[1][1]
+            # Times number of tiles per row
+            ) * (image.vstride - 1) + pshape[1]
+        
+        ysize = (
+            # Full tile shape minus right padding
+            fshape[0] - fpad_h[0][1]
+            # Times number of tiles per column
+            ) * (image.length / image.vstride - 1) + pshape[0]
+
+        return (ysize, xsize)
     
+    def __get_padded_area__(self, image):
+        pass
+    
+    def __move_origin__(self, image):
+        pass
+    
+    def __rotate__(self, image, angle, cv=-1):
+        return rotate(image, angle=angle, cval=cv)
+
     def __do_angle__(self, angle, tiles):
         for tile in tiles:
             self.__do_tile__(tile, angle)
-    
-    def __format_array__(self, array):
-        array[array < 0] = 0
-        tile_size = self.tile_size
-        return np.pad(
-            array, (
-                (0,
-                 int((tile_size - array.shape[-2] % tile_size))*
-                 bool(array.shape[-2]%tile_size)),
-                (0,
-                 int((tile_size - array.shape[-1] % tile_size))*
-                 bool(array.shape[-2]%tile_size))
-            ),
-            constant_values=-1
-        )
-    
-    def __probe__(self, path):
-        f         = self.__get_handle__(path)
-        self.rows = f.RasterYSize
-        self.cols = f.RasterXSize
-        self.f    = f
         
-    def __main__(self):
+    def main(self):
         
         dsm = Image(args.dsm)
         dsm = self.__format_array__(dsm)
@@ -126,36 +149,129 @@ class LCPshifter:
         for angle in args.angles:
             self.__do_angle__(angle, dsm)
         
+        return 0;
+
 
 class Image:
     """
     Class to be reading large geo-images
     tile by tile through subscription.
     """
-    def __init__(self, path, tile_size=1024) -> None:
-        handle    = gdal.Open(path)
-        self.path = path
-        self.rows = handle.RasterYSize
-        self.cols = handle.RasterXSize
+    
+    __slots__ = ['out_x',
+                 'out_y',
+                 'handle',
+                 'path',
+                 'YSize',
+                 'XSize',
+                 'vstride',
+                 'length',
+                 'tile_size',
+                 '__out_handle',
+                 'name',
+                 'dir',
+                 '__xpad',
+                 '__ypad']
+    
+    def __init__(self,
+                 path: str,
+                 block_size=1024):
         
-        self.vstride   = -(-self.cols // tile_size)
-        self.length    = self.vstride * -(-self.rows // tile_size)
-        self.tile_size = tile_size
+        self.handle = gdal.Open(path, gdal.GA_ReadOnly)
+        
+        self.path = path
+        self.name = os.path.split(path)[-1].split('.')[0]
+        self.dir  = 'Results'
+        
+        os.makedirs(self.dir, exist_ok=True)
+        
+        self.YSize = self.handle.RasterYSize
+        self.XSize = self.handle.RasterXSize
+        
+        self.vstride = -(-self.XSize // block_size)
+        self.length  = self.vstride * -(-self.YSize // block_size)
+        
+        self.tile_size = block_size
+        
+        self.__out_handle = None
         
     def __len__(self):
         return self.length
     
-    def __getitem__(self, idx):
+    def set_out_handle(self, rel_path: str):
+        self.__out_handle = self.__get_out_handle(rel_path)
+    
+    def __get_out_handle(self, rel_path: str):
+        """
+        In WRITE mode, it would be convenient if overlapping
+        and output sizes could be figured out internally.
+        
+        Let the Projector class handle other more relevant things.
+        
+        It should be inferred using the cval from the processed
+        array to be written, probably standardized to -1.
+        
+        That would make much more sense.
+        """
+        
+        driver = self.__get_driver()
+        params = self.__output_metadata()
+        handle = driver.Create(
+            rel_path,
+            self.XSize,
+            self.YSize,
+            1,
+            gdal.GDT_Int16
+        )
+        return handle
+        
+    def __output_metadata(self):
+        overlap = None
+        return overlap
+    
+    def __get_tile(self, idx, off_pad=(0, 0)):
         row = idx // self.vstride
         col = idx % self.vstride
         
-        offx = self.tile_size*col
+        offx = self.tile_size*col 
         offy = self.tile_size*row
         
-        xsize = min(self.tile_size, self.cols - col*self.tile_size)
-        ysize = min(self.tile_size, self.rows - row*self.tile_size)
+        xsize = min(self.tile_size, self.XSize - col*self.tile_size)
+        ysize = min(self.tile_size, self.YSize - row*self.tile_size)
+        return offx, offy, xsize, ysize
+    
+    def __getitem__(self, idx):
+        offx, offy, xsize, ysize = self.__get_tile(idx)
+        array = gdal_array.LoadFile(self.path, offx, offy, xsize, ysize)
+        array[array < 0] = 0
+        return array 
+    
+    def write(self, idx, block: np.ndarray):
+        band = self.__out_handle.GetRasterBand(1)
+        xoff, yoff, _, _ = self.__get_tile(idx)
+        band.WriteArray(
+            block,
+            xoff,
+            yoff,
+            callback=None,
+            callback_data=None
+        )
         
-        return gdal_array.LoadFile(self.path, offx, offy, xsize, ysize)
+    def show(self, idx):
+        array = self.__getitem__(idx)
+        
+        if array.shape[0] > 3:
+            array = np.moveaxis(array[[0, 1, 2]], 0, -1) / array.max()
+        
+        fig, ax = plt.subplots(1, 1, figsize=(8, 4))
+        ax.imshow(array)
+        plt.show()
+        plt.close('all')
+        
+        return self
+    
+    def __get_driver(self) -> gdal.Driver:
+        return gdal.GetDriverByName("GTiff")
 
 
 class Shadow_Projector:
@@ -191,9 +307,9 @@ class Shadow_Projector:
                                               self.sun_angles['zenith']))
 
         for line in zip(cast.T, bh.T):
-            self.cast_line(line)
+            self.shadow_algorithm(line)
     
-    def cast_line(self, line_pair):
+    def shadow_algorithm(self, line_pair):
         """
         Cast a shadow line as if the
         azimuth angle is 0 degrees.
