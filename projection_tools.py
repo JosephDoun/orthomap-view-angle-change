@@ -83,15 +83,6 @@ class Projector:
         """
         Use this to get the full output dimensions.
         Accounts for padded tiles and overlapping.
-        
-        # TODO
-        # ORIGIN SHOULD NOT CHANGE.
-        # THE ROTATION PADDING MUST BE UNDONE.
-        # AT LEAST FROM THE WEST AND NORTH SIDES
-        # OF THE IMAGE.
-        # TODO
-        # THIS METHOD WILL BE PASSED TO IMAGE CLASS.
-        
         """
 
         # Get dimensions of key tiles
@@ -103,17 +94,24 @@ class Projector:
         # Get the estimated total padding from rotation
         fpad = (fshape[0] - image.tile_size,
                 fshape[1] - image.tile_size)
-        ppad = (
-                pshape[0] - image.tile_size,
-                pshape[1] - image.tile_size
-            )
+        ppad = (pshape[0] - image.tile_size,
+                pshape[1] - image.tile_size)
         
         # Get left, right pad estimates for each dimension.
-        fpad_h = (
-             (fpad[0] // 2, fpad[0] - fpad[0] // 2),
-             (fpad[1] // 2, fpad[1] - fpad[1] // 2)
-            )
+        fpad_h = ((fpad[0] // 2, fpad[0] - fpad[0] // 2),
+                  (fpad[1] // 2, fpad[1] - fpad[1] // 2))
 
+        trans = image.handle.GetGeoTrans()
+        
+        trans = (
+            trans[0] - trans[1]*fpad[1][0],
+            trans[1],
+            trans[2],
+            trans[3] - trans[5]*fpad[0][0],
+            trans[4],
+            trans[5]
+        )
+        
         xsize = (
             # Full tile shape minus right padding
             fshape[1] - fpad_h[1][1]
@@ -128,23 +126,42 @@ class Projector:
 
         return (ysize, xsize)
     
-    def __get_padded_area__(self, image):
+    def __get_new_origin(self, image, angle):
+        rot = self.__rotate(image[0], angle)
         pass
     
-    def __move_origin__(self, image):
+    def __get_out_shape(self, shape_orig, shape_):
         pass
     
-    def __rotate__(self, image, angle, cv=-1):
-        return rotate(image, angle=angle, cval=cv)
+    def __get_padded_area(self, block, rotated):
+        """
+        Per-block computation.
+        """
+        shape_img = block.shape
+        shape_rot = rotated.shape
+        
+        pad     = (shape_rot[0] - shape_img[0],
+                   shape_rot[1] - shape_img[1])
+        offsets = (pad[0] // 2, pad[1] // 2)
+    
+    def __get_padded_area(self, block: np.array):
+        indices = np.transpose(
+                np.nonzero(block == -1)
+            )
+        return 0
+    
+    def __rotate(self, block, angle, cv=-1):
+        rotated = rotate(block, angle=angle, cval=cv)
+        offsets = self.__get_padded_area(block, rotated)
+        return rotated
 
     def __do_angle__(self, angle, tiles):
         for tile in tiles:
             self.__do_tile__(tile, angle)
-        
+    
     def main(self):
         
         dsm = Image(args.dsm)
-        dsm = self.__format_array__(dsm)
         
         for angle in args.angles:
             self.__do_angle__(angle, dsm)
@@ -156,6 +173,9 @@ class Image:
     """
     Class to be reading large geo-images
     tile by tile through subscription.
+    
+    Class implementation also allows for
+    block by block writing of processed image.
     """
     
     __slots__ = ['out_x',
@@ -203,15 +223,7 @@ class Image:
     
     def __get_out_handle(self, rel_path: str):
         """
-        In WRITE mode, it would be convenient if overlapping
-        and output sizes could be figured out internally.
-        
-        Let the Projector class handle other more relevant things.
-        
-        It should be inferred using the cval from the processed
-        array to be written, probably standardized to -1.
-        
-        That would make much more sense.
+        Return output handle for writing.
         """
         
         driver = self.__get_driver()
@@ -226,6 +238,9 @@ class Image:
         return handle
         
     def __output_metadata(self):
+        """
+        Placeholder method.
+        """
         overlap = None
         return overlap
     
@@ -233,7 +248,7 @@ class Image:
         row = idx // self.vstride
         col = idx % self.vstride
         
-        offx = self.tile_size*col 
+        offx = self.tile_size*col
         offy = self.tile_size*row
         
         xsize = min(self.tile_size, self.XSize - col*self.tile_size)
@@ -248,7 +263,16 @@ class Image:
     
     def write(self, idx, block: np.ndarray):
         band = self.__out_handle.GetRasterBand(1)
+        """
+        if idx == 0:
+            xoff, yoff must be 0
+        otherwise:
+            must be derived through np.where()
+        """
         xoff, yoff, _, _ = self.__get_tile(idx)
+        
+        block = self.__apply_overlap(block)
+        
         band.WriteArray(
             block,
             xoff,
