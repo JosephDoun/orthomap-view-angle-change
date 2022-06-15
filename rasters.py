@@ -129,10 +129,7 @@ class RasterOut(RasterIn):
         row = idx // self.stride
         col = idx % self.stride
         
-        off_pad = (
-            (idx % self.stride) and self.overlaps_xy[0],
-            (idx // self.stride) and self.overlaps_xy[1]
-        )
+        off_pad = self.__get_offset_shift(idx)
                 
         offx = self.tile_size*col - off_pad[0]
         offy = self.tile_size*row - off_pad[1]
@@ -141,6 +138,14 @@ class RasterOut(RasterIn):
         ysize = min(self.tile_size, self.YSize - row*self.tile_size)
         
         return offx, offy, xsize, ysize
+    
+    def __get_offset_shift(self, idx):
+        return (
+            # X
+            (idx % self.stride) and self.overlaps_xy[0],
+            # Y
+            (idx // self.stride) and self.overlaps_xy[1]
+        )
     
     def __probe_tile_size(self):
         """
@@ -228,6 +233,8 @@ class RasterOut(RasterIn):
         band = self.__out_handle.GetRasterBand(1)
         
         xoff, yoff, _, _ = self.__get_tile(idx)
+        
+        block = self.__handle_overlap(idx, block) 
                 
         band.WriteArray(
             block,
@@ -240,3 +247,24 @@ class RasterOut(RasterIn):
     def __register_block(self, idx):
         self.blocks_written.append(idx)
         
+    def __handle_overlap(self, idx, block):
+        overlap = self.__get_offset_shift(idx)
+        if overlap[0]:
+            """
+            Retrieve west tile and overwrite
+            overlapping part.
+            """
+        
+        if overlap[1]:
+            """
+            Retrieve north tile and overwrite
+            overlapping part.
+            """
+        
+        return block
+    
+    def __west_overlap(self, idx):
+        pass
+    
+    def __north_overlap(self, idx):
+        pass
