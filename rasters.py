@@ -148,14 +148,8 @@ class RasterOut(RasterIn):
 
         print("Row:", row, "Col: ", col)
         
-        y_edge = self.y_edge
-        x_edge = self.x_edge
-        
-        dx = self.pad[1] # THIS IS FALLING SHORT SLIGHTLY
-        dy = self.pad[0] # OFF_PAD // 2 IS A BIT TOO MUCH
-        
-        offx = self.tile_size*col - col*off_pad[0] - (col == x_edge) * dx
-        offy = self.tile_size*row - row*off_pad[1] - (row == y_edge) * dy
+        offx = self.tile_size*col - col*off_pad[0]
+        offy = self.tile_size*row - row*off_pad[1]
         
         xsize = min(self.tile_size, self.XSize - col*self.tile_size)
         ysize = min(self.tile_size, self.YSize - row*self.tile_size)
@@ -178,19 +172,28 @@ class RasterOut(RasterIn):
         tile_size = rotate(self.image[0],
                            self.angles[0],
                            # Rotation place is last 2 dimensions
-                           axes=(-1, -2)).shape[-1]
+                           axes=(-1, -2),
+                           order=0).shape[-1]
         return tile_size
     
-    def __pad(self, block: np.ndarray, cv=0):
+    def __pad(self, block: np.ndarray, idx, cv=0):
         shape = block.shape
-        diff  = (self.tile_size - shape[0],
-                 self.tile_size - shape[1])
+        orig  = self.image[idx].shape
+        
+        shape_diff = (shape[0] - orig[0], shape[1] - orig[1])
+        
+        diff  = (self.overlaps_xy[0] - shape_diff[0],
+                 self.overlaps_xy[1] - shape_diff[1])
+        
+        print(shape, orig, shape_diff, diff)
+        # (1013, 1013) (1024, 408) (-11, 605) (223, -393)
+        
         pad   = (
-            (diff[0] // 2, diff[0] - diff[0] // 2),
-            (diff[1] // 2, diff[1] - diff[1] // 2)
+            (diff[0], diff[1]),
+            (diff[0], diff[1])
         )
-        self.pad = (pad[0][0], pad[1][0])
-        assert shape[0] + pad[0][0] + pad[0][1] == self.tile_size
+
+        # assert shape[0] + pad[0][0] + pad[0][1] == self.tile_size
         return np.pad(block, pad, constant_values=cv)
     
     def __calc_padding(self):
@@ -253,8 +256,14 @@ class RasterOut(RasterIn):
         Write to file block by block.
         """
         if block.shape[-1] != self.tile_size:
-            block = self.__pad(block)
-            print(block.shape)
+            
+            # print("Orig Shape:", self.image[idx].shape)
+            # print("Rotated Shape Before:", block.shape)
+            # print("Fixed overlap:", self.overlaps_xy)
+            block = self.__pad(block, idx)
+            # print("Pad amount:", self.pad)
+            # print("Rotated Shape After:", block.shape)
+            # print("Actual padding:", np.transpose(block.nonzero())[0])
              
         band = self.band
         xoff, yoff, _, _ = self.__get_tile(idx)
@@ -271,10 +280,6 @@ class RasterOut(RasterIn):
             callback_data=(idx, self.registered_blocks)
             # Ensure NEAREST NEIGHTBOR
         )
-        
-        # if len(self.registered_blocks) == self.length:
-        #     self.__out_handle.FlushCache()
-        #     self.__out_handle = None
             
         self.__out_handle.FlushCache()
     
