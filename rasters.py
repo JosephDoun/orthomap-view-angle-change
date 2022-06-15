@@ -233,7 +233,10 @@ class RasterOut(RasterIn):
             block,
             xoff,
             yoff,
-            callback=None,
-            callback_data=None
+            callback=self.__register_block,
+            callback_data=(idx,)
         )
+        
+    def __register_block(self, idx):
+        self.blocks_written.append(idx)
         
