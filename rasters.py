@@ -1,4 +1,5 @@
 from email.mime import image
+from re import X
 from typing import Tuple
 from osgeo import gdal, gdal_array
 from scipy.ndimage import rotate
@@ -31,7 +32,9 @@ class RasterIn:
                  'dir',
                  '__xpad',
                  '__ypad',
-                 'origin']
+                 'origin',
+                 'res',
+                 'geotrans']
     
     def __init__(self,
                  path: str,
@@ -49,6 +52,8 @@ class RasterIn:
         self.length  = self.stride * -(-self.YSize // block_size)
         
         self.tile_size = block_size
+        self.geotrans  = self.handle.GetGeoTransform()
+        self.res = (self.geotrans[0], -self.geotrans[1])
                 
     def __len__(self):
         return self.length
@@ -102,6 +107,7 @@ class RasterOut(RasterIn):
         # extract name of file
         self.name = os.path.split(image.path)[-1].split('.')[0]
         
+        # Desired output resolution
         self.res  = res
         
         # Compute new geotransformation
@@ -112,27 +118,44 @@ class RasterOut(RasterIn):
 
         self.XSize, self.YSize = self.__get_output_shape()
         
-        self.out_handle = self.__get_out_handle(
+        self.__out_handle = self.__get_out_handle(
             f"Results/{self.name}_{angles[0]}_{angles[1]}.tif"
             )
-        
-        self.path = self.out_handle.GetDescription()
+        self.band = self.__out_handle.GetRasterBand(1)
+        self.path = self.__out_handle.GetDescription()
         
         self.x_overlap_area = None
         self.y_overlap_area = None
-        self.blocks_written = []
+        
+        self.y_edge = self.length // self.stride - 1
+        self.x_edge = self.stride - 1
+        
+        self.pad = (0, 0)
+        self.registered_blocks = []
         
     def __len__(self):
         return super().__len__()
     
     def __get_tile(self, idx):
+        """
+        Calculate and return tile coordinates
+        and dimensions.
+        """
         row = idx // self.stride
         col = idx % self.stride
         
         off_pad = self.__get_offset_shift(idx)
-                
-        offx = self.tile_size*col - off_pad[0]
-        offy = self.tile_size*row - off_pad[1]
+
+        print("Row:", row, "Col: ", col)
+        
+        y_edge = self.y_edge
+        x_edge = self.x_edge
+        
+        dx = self.pad[1] # THIS IS FALLING SHORT SLIGHTLY
+        dy = self.pad[0] # OFF_PAD // 2 IS A BIT TOO MUCH
+        
+        offx = self.tile_size*col - col*off_pad[0] - (col == x_edge) * dx
+        offy = self.tile_size*row - row*off_pad[1] - (row == y_edge) * dy
         
         xsize = min(self.tile_size, self.XSize - col*self.tile_size)
         ysize = min(self.tile_size, self.YSize - row*self.tile_size)
@@ -142,9 +165,9 @@ class RasterOut(RasterIn):
     def __get_offset_shift(self, idx):
         return (
             # X
-            (idx % self.stride) and self.overlaps_xy[0],
+            2 * self.overlaps_xy[0],
             # Y
-            (idx // self.stride) and self.overlaps_xy[1]
+            2 * self.overlaps_xy[1]
         )
     
     def __probe_tile_size(self):
@@ -158,7 +181,7 @@ class RasterOut(RasterIn):
                            axes=(-1, -2)).shape[-1]
         return tile_size
     
-    def __pad(self, block: np.ndarray):
+    def __pad(self, block: np.ndarray, cv=0):
         shape = block.shape
         diff  = (self.tile_size - shape[0],
                  self.tile_size - shape[1])
@@ -166,9 +189,9 @@ class RasterOut(RasterIn):
             (diff[0] // 2, diff[0] - diff[0] // 2),
             (diff[1] // 2, diff[1] - diff[1] // 2)
         )
-
-        assert shape[0] + pad[0][0] + pad[0][1] == self.tile_size[0]
-        return np.pad(block, pad, constant_values=-1)
+        self.pad = (pad[0][0], pad[1][0])
+        assert shape[0] + pad[0][0] + pad[0][1] == self.tile_size
+        return np.pad(block, pad, constant_values=cv)
     
     def __calc_padding(self):
         """
@@ -186,13 +209,13 @@ class RasterOut(RasterIn):
         """
         tile_size = self.tile_size
         orig_tile = self.image.tile_size
-        length = len(self.image)
+        length = self.__len__()
         stride = self.image.stride
-        
+
         xsize = tile_size * stride
         ysize = tile_size * (int(length / stride))
         
-        return ysize, xsize
+        return xsize, ysize
     
     def __get_geotransform(self, xpad, ypad):
         geotrans = self.handle.GetGeoTransform()
@@ -216,8 +239,10 @@ class RasterOut(RasterIn):
             self.XSize,
             self.YSize,
             1,
-            gdal.GDT_Int16
+            # gdal.GDT_Float32
         )
+        handle.SetGeoTransform(self.geotrans)
+        handle.SetProjection(self.handle.GetProjection())
         return handle
     
     def __get_driver(self) -> gdal.Driver:
@@ -227,25 +252,37 @@ class RasterOut(RasterIn):
         """
         Write to file block by block.
         """
-        if block.shape != self.tile_size:
+        if block.shape[-1] != self.tile_size:
             block = self.__pad(block)
-        
-        band = self.__out_handle.GetRasterBand(1)
-        
+            print(block.shape)
+             
+        band = self.band
         xoff, yoff, _, _ = self.__get_tile(idx)
         
-        block = self.__handle_overlap(idx, block) 
-                
+        # block = self.__handle_overlap(idx, block)
+        # print(self.__get_offset_shift(idx))
+        # print(xoff, yoff, self.XSize, self.YSize)
+        
         band.WriteArray(
             block,
             xoff,
             yoff,
             callback=self.__register_block,
-            callback_data=(idx,)
+            callback_data=(idx, self.registered_blocks)
+            # Ensure NEAREST NEIGHTBOR
         )
         
-    def __register_block(self, idx):
-        self.blocks_written.append(idx)
+        # if len(self.registered_blocks) == self.length:
+        #     self.__out_handle.FlushCache()
+        #     self.__out_handle = None
+            
+        self.__out_handle.FlushCache()
+    
+    def __register_block(self, *args):
+        progress      = args[0]
+        idx, register = args[-1]
+        if progress == 1.0 and not idx in register:
+            register.append(idx)
         
     def __handle_overlap(self, idx, block):
         overlap = self.__get_offset_shift(idx)
@@ -254,17 +291,24 @@ class RasterOut(RasterIn):
             Retrieve west tile and overwrite
             overlapping part.
             """
+            block = self.__west_overlap(idx, block, overlap[0])
         
         if overlap[1]:
             """
             Retrieve north tile and overwrite
             overlapping part.
             """
-        
+            block = self.__north_overlap(idx, block, overlap[0])
+            
         return block
     
-    def __west_overlap(self, idx, block):
-        pass
+    def __west_overlap(self, idx, block, overlap):
+        west_block = idx - 1
+        assert west_block in self.registered_blocks, "Oops, west."
+        self.__getitem__(west_block)
+        return block
     
-    def __north_overlap(self, idx, block):
-        pass
+    def __north_overlap(self, idx, block, overlap):
+        north_block = idx - self.stride
+        assert north_block in self.registered_blocks, "Opps, north."
+        return block
