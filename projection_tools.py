@@ -16,6 +16,7 @@ import matplotlib.pyplot as plt
 from multiprocessing import Process, RawArray
 from tqdm import tqdm
 from typing import Tuple
+from rasters import RasterIn
 
 
 if __name__ == 'main':
@@ -161,141 +162,12 @@ class Projector:
     
     def main(self):
         
-        dsm = Image(args.dsm)
+        dsm = RasterIn(args.dsm)
         
         for angle in args.angles:
             self.__do_angle__(angle, dsm)
         
         return 0;
-
-
-class Image:
-    """
-    Class to be reading large geo-images
-    tile by tile through subscription.
-    
-    Class implementation also allows for
-    block by block writing of processed image.
-    """
-    
-    __slots__ = ['out_x',
-                 'out_y',
-                 'handle',
-                 'path',
-                 'YSize',
-                 'XSize',
-                 'vstride',
-                 'length',
-                 'tile_size',
-                 '__out_handle',
-                 'name',
-                 'dir',
-                 '__xpad',
-                 '__ypad']
-    
-    def __init__(self,
-                 path: str,
-                 block_size=1024):
-        
-        self.handle = gdal.Open(path, gdal.GA_ReadOnly)
-        
-        self.path = path
-        self.name = os.path.split(path)[-1].split('.')[0]
-        self.dir  = 'Results'
-        
-        os.makedirs(self.dir, exist_ok=True)
-        
-        self.YSize = self.handle.RasterYSize
-        self.XSize = self.handle.RasterXSize
-        
-        self.vstride = -(-self.XSize // block_size)
-        self.length  = self.vstride * -(-self.YSize // block_size)
-        
-        self.tile_size = block_size
-        
-        self.__out_handle = None
-        
-    def __len__(self):
-        return self.length
-    
-    def set_out_handle(self, rel_path: str):
-        self.__out_handle = self.__get_out_handle(rel_path)
-    
-    def __get_out_handle(self, rel_path: str):
-        """
-        Return output handle for writing.
-        """
-        
-        driver = self.__get_driver()
-        params = self.__output_metadata()
-        handle = driver.Create(
-            rel_path,
-            self.XSize,
-            self.YSize,
-            1,
-            gdal.GDT_Int16
-        )
-        return handle
-        
-    def __output_metadata(self):
-        """
-        Placeholder method.
-        """
-        overlap = None
-        return overlap
-    
-    def __get_tile(self, idx, off_pad=(0, 0)):
-        row = idx // self.vstride
-        col = idx % self.vstride
-        
-        offx = self.tile_size*col
-        offy = self.tile_size*row
-        
-        xsize = min(self.tile_size, self.XSize - col*self.tile_size)
-        ysize = min(self.tile_size, self.YSize - row*self.tile_size)
-        return offx, offy, xsize, ysize
-    
-    def __getitem__(self, idx):
-        offx, offy, xsize, ysize = self.__get_tile(idx)
-        array = gdal_array.LoadFile(self.path, offx, offy, xsize, ysize)
-        array[array < 0] = 0
-        return array 
-    
-    def write(self, idx, block: np.ndarray):
-        band = self.__out_handle.GetRasterBand(1)
-        """
-        if idx == 0:
-            xoff, yoff must be 0
-        otherwise:
-            must be derived through np.where()
-        """
-        xoff, yoff, _, _ = self.__get_tile(idx)
-        
-        block = self.__apply_overlap(block)
-        
-        band.WriteArray(
-            block,
-            xoff,
-            yoff,
-            callback=None,
-            callback_data=None
-        )
-        
-    def show(self, idx):
-        array = self.__getitem__(idx)
-        
-        if array.shape[0] > 3:
-            array = np.moveaxis(array[[0, 1, 2]], 0, -1) / array.max()
-        
-        fig, ax = plt.subplots(1, 1, figsize=(8, 4))
-        ax.imshow(array)
-        plt.show()
-        plt.close('all')
-        
-        return self
-    
-    def __get_driver(self) -> gdal.Driver:
-        return gdal.GetDriverByName("GTiff")
 
 
 class Shadow_Projector:
