@@ -120,6 +120,7 @@ class RasterOut(RasterIn):
         
         self.x_overlap_area = None
         self.y_overlap_area = None
+        self.blocks_written = []
         
     def __len__(self):
         return super().__len__()
@@ -218,7 +219,9 @@ class RasterOut(RasterIn):
         return gdal.GetDriverByName("GTiff")
     
     def write(self, idx, block: np.ndarray):
-        
+        """
+        Write to file block by block.
+        """
         if block.shape != self.tile_size:
             block = self.__pad(block)
         
