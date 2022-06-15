@@ -263,8 +263,8 @@ class RasterOut(RasterIn):
         
         return block
     
-    def __west_overlap(self, idx):
+    def __west_overlap(self, idx, block):
         pass
     
-    def __north_overlap(self, idx):
+    def __north_overlap(self, idx, block):
         pass
