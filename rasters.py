@@ -121,11 +121,7 @@ class RasterOut(RasterIn):
             )
         self.band = self.__out_handle.GetRasterBand(1)
         self.path = self.__out_handle.GetDescription()
-        
-        # self.x_edge_size = None
-        # self.y_edge_size = None
-        
-        # self.pad = (0, 0)
+
         self.registered_blocks = []
         
     def __len__(self):
@@ -162,7 +158,6 @@ class RasterOut(RasterIn):
         offx, offy, xsize, ysize = self.__get_tile(idx)
         print("Reading Shape: ", (xsize, ysize))
         array = gdal_array.LoadFile(self.path, offx, offy, xsize, ysize)
-        # array[array < 0] = 0
         return array 
     
     def __get_offset_shift(self, idx):
@@ -183,22 +178,6 @@ class RasterOut(RasterIn):
                            # Rotation place is last 2 dimensions
                            axes=(-1, -2),
                            order=0).shape[-1]
-        
-        # self.tile_size = tile_size
-        
-        # self.x_edge_size = rotate(self.image[self.stride - 1],
-        #                    self.angles[0],
-        #                    # Rotation place is last 2 dimensions
-        #                    axes=(-1, -2),
-        #                    order=0)
-        # self.x_edge_size = self.__pad(self.x_edge_size, self.stride - 1)
-        # self.y_edge_size = rotate(self.image[self.stride - 1],
-        #                    self.angles[0],
-        #                    # Rotation place is last 2 dimensions
-        #                    axes=(-1, -2),
-        #                    order=0)
-        # self.y_edge_size = self.__pad(self.y_edge_size,
-        #                               self.length - self.stride)
         return tile_size
     
     def __pad(self, block: np.ndarray, idx, cv=0):
@@ -226,10 +205,6 @@ class RasterOut(RasterIn):
             ((diff[0])*(diff[0] > 0), 0),
             ((diff[1])*(diff[1] > 0), 0)
         )
-        
-        # To fix overlap issue with edge blocks
-        self.temp_bug_fix = diff
-        
         return np.pad(block, pad, constant_values=cv)[-(diff[0])*(diff[0] < 0):,
                                                       -(diff[1])*(diff[1] < 0):]
     
@@ -293,17 +268,15 @@ class RasterOut(RasterIn):
         """
         Write to file block by block.
         """
-        edge_padding = 0
         if block.shape[-1] != self.tile_size:
             block = self.__pad(block, idx)
-            edge_padding = self.temp_bug_fix[0]
         
         print("Writing Shape: ", block.shape)
              
         band = self.band
         xoff, yoff, _, _ = self.__get_tile(idx)
         
-        block = self.__handle_overlap(idx, block, edge_padding)
+        block = self.__handle_overlap(idx, block)
         
         band.WriteArray(
             block,
@@ -322,7 +295,7 @@ class RasterOut(RasterIn):
         if progress == 1.0 and not idx in register:
             register.append(idx)
         
-    def __handle_overlap(self, idx, block, edge_pad):
+    def __handle_overlap(self, idx, block):
 
         xoff, yoff, _, _ = self.__get_tile(idx)
         print(self.__get_tile(idx))
@@ -332,8 +305,7 @@ class RasterOut(RasterIn):
             overlapping part.
             """
             block = self.__west_overlap(idx, block,
-                                        self.overlaps_xy[0],
-                                        edge_pad=edge_pad)
+                                        self.overlaps_xy[0])
         
         if yoff:
             """
@@ -344,7 +316,7 @@ class RasterOut(RasterIn):
             
         return block
     
-    def __west_overlap(self, idx, block, overlap, edge_pad=0):
+    def __west_overlap(self, idx, block, overlap):
         west_block = idx - 1
         
         assert west_block in self.registered_blocks, "Oops, west."
@@ -358,8 +330,8 @@ class RasterOut(RasterIn):
         ]
         
         difference = (block.shape[0] - overlap_1.shape[0])
-        
-        overlap_1 = overlap_1[-difference:]
+
+        overlap_1 = overlap_1[:block.shape[0]]
         overlap_2 = block[:, :2*overlap]
         
         print("OVERLAP SHAPES:", overlap_1.shape, overlap_2.shape)
