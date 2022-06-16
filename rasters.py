@@ -226,7 +226,10 @@ class RasterOut(RasterIn):
             ((diff[0])*(diff[0] > 0), 0),
             ((diff[1])*(diff[1] > 0), 0)
         )
-        # print("edge padding: ", diff)
+        
+        # To fix overlap issue with edge blocks
+        self.temp_bug_fix = diff
+        
         return np.pad(block, pad, constant_values=cv)[-(diff[0])*(diff[0] < 0):,
                                                       -(diff[1])*(diff[1] < 0):]
     
