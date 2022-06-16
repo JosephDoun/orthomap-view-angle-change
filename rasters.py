@@ -293,15 +293,17 @@ class RasterOut(RasterIn):
         """
         Write to file block by block.
         """
+        edge_padding = 0
         if block.shape[-1] != self.tile_size:
             block = self.__pad(block, idx)
+            edge_padding = self.temp_bug_fix[0]
         
         print("Writing Shape: ", block.shape)
              
         band = self.band
         xoff, yoff, _, _ = self.__get_tile(idx)
         
-        block = self.__handle_overlap(idx, block)
+        block = self.__handle_overlap(idx, block, edge_padding)
         
         band.WriteArray(
             block,
@@ -320,7 +322,7 @@ class RasterOut(RasterIn):
         if progress == 1.0 and not idx in register:
             register.append(idx)
         
-    def __handle_overlap(self, idx, block):
+    def __handle_overlap(self, idx, block, edge_pad):
 
         xoff, yoff, _, _ = self.__get_tile(idx)
         print(self.__get_tile(idx))
@@ -329,7 +331,9 @@ class RasterOut(RasterIn):
             Retrieve west tile and overwrite
             overlapping part.
             """
-            block = self.__west_overlap(idx, block, self.overlaps_xy[0])
+            block = self.__west_overlap(idx, block,
+                                        self.overlaps_xy[0],
+                                        edge_pad=edge_pad)
         
         if yoff:
             """
@@ -340,19 +344,24 @@ class RasterOut(RasterIn):
             
         return block
     
-    def __west_overlap(self, idx, block, overlap):
+    def __west_overlap(self, idx, block, overlap, edge_pad=0):
         west_block = idx - 1
         
         assert west_block in self.registered_blocks, "Oops, west."
         
         """TESTING SNIPPET"""
         oblock = self.__getitem__(west_block)
-        plt.imshow(oblock)
-        plt.show()
+        # plt.imshow(oblock)
+        # plt.show()
         overlap_1 = self.__getitem__(west_block)[
-            :, -2*self.overlaps_xy[0]:
+            :, -2*overlap:
         ]
-        overlap_2 = block[:, :2*self.overlaps_xy[0]]
+        
+        difference = (block.shape[0] - overlap_1.shape[0])
+        
+        overlap_1 = overlap_1[-difference:]
+        overlap_2 = block[:, :2*overlap]
+        
         print("OVERLAP SHAPES:", overlap_1.shape, overlap_2.shape)
         # plt.imshow(overlap_1);
         # plt.show();
