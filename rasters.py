@@ -173,25 +173,20 @@ class RasterOut(RasterIn):
         shape = block.shape
         orig  = self.image[idx].shape
         
-        shape_diff = ((shape[0] - orig[0]) // 2,
-                      (shape[1] - orig[1]) // 2)
+        shape_diff = (-(-(shape[0] - orig[0]) // 2),
+                      -(-(shape[1] - orig[1]) // 2)) 
         
         diff  = (self.overlaps_xy[0] - shape_diff[0],
                  self.overlaps_xy[1] - shape_diff[1])
-        
+
         """
         Shape_diff : Cols // 2 (605) gives left padding.
         This has to be equal to self.overlaps_xy[0], for
-        offset calculation to work properly.
+        offset calculations to work properly.
         
         Shape_diff : Rows // 2 (-11) gives top padding.
         This has to be equal to self.overlaps_xy[1], for
-        offset calculation to work properly.
-        
-        # TODO
-        # EDGES ARE CURRENTLY OFF BY 1 PIXEL WORTH
-        # OF GEOMETRIC ACCURACY IN EACH DIMENSION
-        
+        offset calculations to work properly.
         """
         # (1013, 1013) (1024, 408) (-11, 605) (223, -393)
         
@@ -204,7 +199,7 @@ class RasterOut(RasterIn):
     
     def __calc_padding(self):
         """
-        Calculate padded space.
+        Calculate padded space for full block.
         """
         return (
             self.tile_size - self.image.tile_size,
