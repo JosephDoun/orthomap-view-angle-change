@@ -53,7 +53,7 @@ class RasterIn:
         
         self.tile_size = block_size
         self.geotrans  = self.handle.GetGeoTransform()
-        self.res = (self.geotrans[0], -self.geotrans[1])
+        self.res = (self.geotrans[1], -self.geotrans[-1])
                 
     def __len__(self):
         return self.length
@@ -78,10 +78,8 @@ class RasterIn:
     def show(self, idx):
         array = self.__getitem__(idx)
         
-        if array.shape[0] > 3:
-            array = np.moveaxis(array[[0, 1, 2]], 0, -1) / array.max()
-        
         fig, ax = plt.subplots(1, 1, figsize=(8, 4))
+
         ax.imshow(array)
         plt.show()
         plt.close('all')
@@ -127,9 +125,6 @@ class RasterOut(RasterIn):
         self.x_overlap_area = None
         self.y_overlap_area = None
         
-        self.y_edge = self.length // self.stride - 1
-        self.x_edge = self.stride - 1
-        
         self.pad = (0, 0)
         self.registered_blocks = []
         
@@ -145,8 +140,6 @@ class RasterOut(RasterIn):
         col = idx % self.stride
         
         off_pad = self.__get_offset_shift(idx)
-
-        print("Row:", row, "Col: ", col)
         
         offx = self.tile_size*col - col*off_pad[0]
         offy = self.tile_size*row - row*off_pad[1]
@@ -180,21 +173,34 @@ class RasterOut(RasterIn):
         shape = block.shape
         orig  = self.image[idx].shape
         
-        shape_diff = (shape[0] - orig[0], shape[1] - orig[1])
+        shape_diff = ((shape[0] - orig[0]) // 2,
+                      (shape[1] - orig[1]) // 2)
         
         diff  = (self.overlaps_xy[0] - shape_diff[0],
                  self.overlaps_xy[1] - shape_diff[1])
         
-        print(shape, orig, shape_diff, diff)
+        """
+        Shape_diff : Cols // 2 (605) gives left padding.
+        This has to be equal to self.overlaps_xy[0], for
+        offset calculation to work properly.
+        
+        Shape_diff : Rows // 2 (-11) gives top padding.
+        This has to be equal to self.overlaps_xy[1], for
+        offset calculation to work properly.
+        
+        # TODO
+        # EDGES ARE CURRENTLY OFF BY 1 PIXEL WORTH
+        # OF GEOMETRIC ACCURACY IN EACH DIMENSION
+        
+        """
         # (1013, 1013) (1024, 408) (-11, 605) (223, -393)
         
         pad   = (
-            (diff[0], diff[1]),
-            (diff[0], diff[1])
+            ((diff[0])*(diff[0] > 0), 0),
+            ((diff[1])*(diff[1] > 0), 0)
         )
-
-        # assert shape[0] + pad[0][0] + pad[0][1] == self.tile_size
-        return np.pad(block, pad, constant_values=cv)
+        return np.pad(block, pad, constant_values=cv)[-(diff[0])*(diff[0] < 0):,
+                                                      -(diff[1])*(diff[1] < 0):]
     
     def __calc_padding(self):
         """
@@ -256,21 +262,10 @@ class RasterOut(RasterIn):
         Write to file block by block.
         """
         if block.shape[-1] != self.tile_size:
-            
-            # print("Orig Shape:", self.image[idx].shape)
-            # print("Rotated Shape Before:", block.shape)
-            # print("Fixed overlap:", self.overlaps_xy)
             block = self.__pad(block, idx)
-            # print("Pad amount:", self.pad)
-            # print("Rotated Shape After:", block.shape)
-            # print("Actual padding:", np.transpose(block.nonzero())[0])
              
         band = self.band
         xoff, yoff, _, _ = self.__get_tile(idx)
-        
-        # block = self.__handle_overlap(idx, block)
-        # print(self.__get_offset_shift(idx))
-        # print(xoff, yoff, self.XSize, self.YSize)
         
         band.WriteArray(
             block,
