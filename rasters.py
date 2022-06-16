@@ -122,10 +122,10 @@ class RasterOut(RasterIn):
         self.band = self.__out_handle.GetRasterBand(1)
         self.path = self.__out_handle.GetDescription()
         
-        self.x_overlap_area = None
-        self.y_overlap_area = None
+        # self.x_edge_size = None
+        # self.y_edge_size = None
         
-        self.pad = (0, 0)
+        # self.pad = (0, 0)
         self.registered_blocks = []
         
     def __len__(self):
@@ -143,11 +143,27 @@ class RasterOut(RasterIn):
         
         offx = self.tile_size*col - col*off_pad[0]
         offy = self.tile_size*row - row*off_pad[1]
+
+        tile_size = self.tile_size
         
-        xsize = min(self.tile_size, self.XSize - col*self.tile_size)
-        ysize = min(self.tile_size, self.YSize - row*self.tile_size)
+        xsize = min(tile_size, self.XSize - offx)
+        ysize = min(tile_size, self.YSize - offy)
+        
+        print(self.XSize,
+              self.YSize,
+              tile_size,
+              "offx, offy:", (offx, offy),
+              "size: ", (xsize, ysize),
+              "off_size: ", (self.XSize - offx, self.YSize - offy))
         
         return offx, offy, xsize, ysize
+    
+    def __getitem__(self, idx):
+        offx, offy, xsize, ysize = self.__get_tile(idx)
+        print("Reading Shape: ", (xsize, ysize))
+        array = gdal_array.LoadFile(self.path, offx, offy, xsize, ysize)
+        # array[array < 0] = 0
+        return array 
     
     def __get_offset_shift(self, idx):
         return (
@@ -167,6 +183,22 @@ class RasterOut(RasterIn):
                            # Rotation place is last 2 dimensions
                            axes=(-1, -2),
                            order=0).shape[-1]
+        
+        # self.tile_size = tile_size
+        
+        # self.x_edge_size = rotate(self.image[self.stride - 1],
+        #                    self.angles[0],
+        #                    # Rotation place is last 2 dimensions
+        #                    axes=(-1, -2),
+        #                    order=0)
+        # self.x_edge_size = self.__pad(self.x_edge_size, self.stride - 1)
+        # self.y_edge_size = rotate(self.image[self.stride - 1],
+        #                    self.angles[0],
+        #                    # Rotation place is last 2 dimensions
+        #                    axes=(-1, -2),
+        #                    order=0)
+        # self.y_edge_size = self.__pad(self.y_edge_size,
+        #                               self.length - self.stride)
         return tile_size
     
     def __pad(self, block: np.ndarray, idx, cv=0):
@@ -194,6 +226,7 @@ class RasterOut(RasterIn):
             ((diff[0])*(diff[0] > 0), 0),
             ((diff[1])*(diff[1] > 0), 0)
         )
+        # print("edge padding: ", diff)
         return np.pad(block, pad, constant_values=cv)[-(diff[0])*(diff[0] < 0):,
                                                       -(diff[1])*(diff[1] < 0):]
     
@@ -208,16 +241,17 @@ class RasterOut(RasterIn):
     
     def __get_output_shape(self):
         """
-        # TODO
-        # Make XSize, YSize more precise.
+        Calculate and return output size
+        based on measurements of 1 block.
         """
         tile_size = self.tile_size
         orig_tile = self.image.tile_size
         length = self.__len__()
         stride = self.image.stride
-
-        xsize = tile_size * stride
-        ysize = tile_size * (int(length / stride))
+        height = length // stride
+        
+        xsize = tile_size * stride - 2 * self.overlaps_xy[0] * stride
+        ysize = tile_size * height - 2 * self.overlaps_xy[1] * height
         
         return xsize, ysize
     
@@ -258,9 +292,13 @@ class RasterOut(RasterIn):
         """
         if block.shape[-1] != self.tile_size:
             block = self.__pad(block, idx)
+        
+        print("Writing Shape: ", block.shape)
              
         band = self.band
         xoff, yoff, _, _ = self.__get_tile(idx)
+        
+        block = self.__handle_overlap(idx, block)
         
         band.WriteArray(
             block,
@@ -280,30 +318,52 @@ class RasterOut(RasterIn):
             register.append(idx)
         
     def __handle_overlap(self, idx, block):
-        overlap = self.__get_offset_shift(idx)
-        if overlap[0]:
+
+        xoff, yoff, _, _ = self.__get_tile(idx)
+        print(self.__get_tile(idx))
+        if xoff:
             """
             Retrieve west tile and overwrite
             overlapping part.
             """
-            block = self.__west_overlap(idx, block, overlap[0])
+            block = self.__west_overlap(idx, block, self.overlaps_xy[0])
         
-        if overlap[1]:
+        if yoff:
             """
             Retrieve north tile and overwrite
             overlapping part.
             """
-            block = self.__north_overlap(idx, block, overlap[0])
+            block = self.__north_overlap(idx, block, self.overlaps_xy[1])
             
         return block
     
     def __west_overlap(self, idx, block, overlap):
         west_block = idx - 1
+        
         assert west_block in self.registered_blocks, "Oops, west."
-        self.__getitem__(west_block)
+        
+        """TESTING SNIPPET"""
+        oblock = self.__getitem__(west_block)
+        plt.imshow(oblock)
+        plt.show()
+        overlap_1 = self.__getitem__(west_block)[
+            :, -2*self.overlaps_xy[0]:
+        ]
+        overlap_2 = block[:, :2*self.overlaps_xy[0]]
+        print("OVERLAP SHAPES:", overlap_1.shape, overlap_2.shape)
+        # plt.imshow(overlap_1);
+        # plt.show();
+        # plt.imshow(overlap_2);
+        # plt.show()
+        overlap_2[overlap_2 == 0] = overlap_1[overlap_2 == 0]
+        # plt.imshow(overlap_2)
+        # plt.show()
+        
         return block
     
     def __north_overlap(self, idx, block, overlap):
         north_block = idx - self.stride
         assert north_block in self.registered_blocks, "Opps, north."
+        self.__getitem__(north_block)
         return block
+    
