@@ -322,15 +322,20 @@ class RasterOut(RasterIn):
         assert west_block in self.registered_blocks, "Oops, west."
         
         """TESTING SNIPPET"""
-        # oblock = self.__getitem__(west_block)
+        oblock = self.__getitem__(west_block)
         # plt.imshow(oblock)
         # plt.show()
+        
+        difference = ((oblock.shape[0] - block.shape[0]),
+                      (oblock.shape[1] - block.shape[0]))
+        oblock = oblock[
+            :, :
+        ]
+        print("*****DIFFERENCES:", difference)
+        
         overlap_1 = self.__getitem__(west_block)[
             :, -2*overlap:
         ]
-        
-        difference = (block.shape[0] - overlap_1.shape[0])
-
         overlap_1 = overlap_1[:block.shape[0]]
         overlap_2 = block[:, :2*overlap]
         
