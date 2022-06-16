@@ -322,7 +322,7 @@ class RasterOut(RasterIn):
         assert west_block in self.registered_blocks, "Oops, west."
         
         """TESTING SNIPPET"""
-        oblock = self.__getitem__(west_block)
+        # oblock = self.__getitem__(west_block)
         # plt.imshow(oblock)
         # plt.show()
         overlap_1 = self.__getitem__(west_block)[
