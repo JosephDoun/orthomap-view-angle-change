@@ -145,9 +145,9 @@ class RasterOut(RasterIn):
         xsize = min(tile_size, self.XSize - offx)
         ysize = min(tile_size, self.YSize - offy)
         
-        print(self.XSize,
-              self.YSize,
-              tile_size,
+        print("Total cols:", self.XSize,
+              "Total rows:", self.YSize,
+              "tile_size:", tile_size,
               "offx, offy:", (offx, offy),
               "size: ", (xsize, ysize),
               "off_size: ", (self.XSize - offx, self.YSize - offy))
@@ -156,7 +156,6 @@ class RasterOut(RasterIn):
     
     def __getitem__(self, idx):
         offx, offy, xsize, ysize = self.__get_tile(idx)
-        print("Reading Shape: ", (xsize, ysize))
         array = gdal_array.LoadFile(self.path, offx, offy, xsize, ysize)
         return array 
     
@@ -205,6 +204,13 @@ class RasterOut(RasterIn):
             ((diff[0])*(diff[0] > 0), 0),
             ((diff[1])*(diff[1] > 0), 0)
         )
+        
+        print("---------------PADDING IMAGE-----------------")
+        print("ORIGINAL SHAPE:", block.shape)
+        print("PADDED SHAPE:", np.pad(block, pad, constant_values=cv)[-(diff[0])*(diff[0] < 0):,
+                                                      -(diff[1])*(diff[1] < 0):])
+        print("---------------PADDING IMAGE-----------------")
+        
         return np.pad(block, pad, constant_values=cv)[-(diff[0])*(diff[0] < 0):,
                                                       -(diff[1])*(diff[1] < 0):]
     
@@ -269,10 +275,9 @@ class RasterOut(RasterIn):
         Write to file block by block.
         """
         if block.shape[-1] != self.tile_size:
+            print("::"*100)
             block = self.__pad(block, idx)
-        
-        print("Writing Shape: ", block.shape)
-             
+                     
         band = self.band
         xoff, yoff, _, _ = self.__get_tile(idx)
         
@@ -286,7 +291,7 @@ class RasterOut(RasterIn):
             callback_data=(idx, self.registered_blocks)
             # Ensure NEAREST NEIGHTBOR
         )
-            
+        
         self.__out_handle.FlushCache()
     
     def __register_block(self, *args):
@@ -325,21 +330,23 @@ class RasterOut(RasterIn):
         oblock = self.__getitem__(west_block)
         # plt.imshow(oblock)
         # plt.show()
+        print("*****WEST Reading Shape: ", oblock.shape)
+        print("*****WEST Writing Shape: ", block.shape)
         
         difference = ((oblock.shape[0] - block.shape[0]),
-                      (oblock.shape[1] - block.shape[0]))
+                      (oblock.shape[1] - block.shape[1]))
         oblock = oblock[
             :, :
         ]
-        print("*****DIFFERENCES:", difference)
+        print("*****WEST DIFFERENCES:", difference)
         
-        overlap_1 = self.__getitem__(west_block)[
+        overlap_1 = oblock[
             :, -2*overlap:
         ]
         overlap_1 = overlap_1[:block.shape[0]]
         overlap_2 = block[:, :2*overlap]
         
-        print("OVERLAP SHAPES:", overlap_1.shape, overlap_2.shape)
+        print("*****WEST OVERLAP SHAPES:", overlap_1.shape, overlap_2.shape)
         # plt.imshow(overlap_1);
         # plt.show();
         # plt.imshow(overlap_2);
@@ -353,6 +360,21 @@ class RasterOut(RasterIn):
     def __north_overlap(self, idx, block, overlap):
         north_block = idx - self.stride
         assert north_block in self.registered_blocks, "Opps, north."
-        self.__getitem__(north_block)
+        oblock = self.__getitem__(north_block)
+        print("*****NORTH Reading Shape: ", oblock.shape)
+        print("*****NORTH Writing Shape: ", block.shape)
+        difference = ((oblock.shape[0] - block.shape[0]),
+                      (oblock.shape[1] - block.shape[1]))
+        oblock = oblock[
+            :, :
+        ]
+        print("*****NORTH DIFFERENCES:", difference)
+        overlap_1 = oblock[
+            -2*overlap:, :
+        ]
+        overlap_1 = overlap_1[:, :block.shape[1]]
+        overlap_2 = block[:2*overlap, :]
+        print("*****NORTH OVERLAP SHAPES:", overlap_1.shape, overlap_2.shape)
+        overlap_2[overlap_2 == 0] = overlap_1[overlap_2 == 0]
         return block
     
