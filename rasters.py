@@ -240,6 +240,10 @@ class RasterOut(RasterIn):
         """
         Calculate and return output size
         based on measurements of 1 block.
+        
+        # TODO
+        # FIX UNUSED VARIABLES
+        # TEST WITH ARBITRARY INPUT RASTERS
         """
         tile_size = self.tile_size
         orig_tile = self.image.tile_size
@@ -352,29 +356,29 @@ class RasterOut(RasterIn):
         """TESTING SNIPPET"""
         oblock = self.__getitem__(west_block)
         
-        s = {433 - 24 * i for i in range(2)}
-        if idx in s:
-            plt.imshow(oblock)
-            plt.show()
-            plt.imshow(block)
-            plt.show()
+        # s = {433 - 24 * i for i in range(2)}
+        # if idx in s:
+        #     plt.imshow(oblock)
+        #     plt.show()
+        #     plt.imshow(block)
+        #     plt.show()
                 
         overlap_1 = oblock[
             :, -2*overlap:
         ]
         overlap_2 = block[:, :2*overlap]
                 
-        if idx in s:
-            plt.imshow(overlap_1);
-            plt.show();
-            plt.imshow(overlap_2);
-            plt.show()
+        # if idx in s:
+        #     plt.imshow(overlap_1);
+        #     plt.show();
+        #     plt.imshow(overlap_2);
+        #     plt.show()
             
         overlap_2[overlap_2 == self.nodata] = overlap_1[overlap_2 == self.nodata]
         
-        if idx in s:
-            plt.imshow(block)
-            plt.show()
+        # if idx in s:
+        #     plt.imshow(block)
+        #     plt.show()
         
         return block
     
@@ -384,35 +388,36 @@ class RasterOut(RasterIn):
         
         oblock = self.__getitem__(north_block)
 
-        s = {432 - 24 * i for i in range(2)}        
-        if idx in s:
-            plt.imshow(oblock)
-            plt.show()
-            plt.imshow(block)
-            plt.show()
+        # s = {432 - 24 * i for i in range(2)}        
+        # if idx in s:
+        #     plt.imshow(oblock)
+        #     plt.show()
+        #     plt.imshow(block)
+        #     plt.show()
         
         overlap_1 = oblock[
             -2*overlap:, :
         ]
         overlap_2 = block[:2*overlap, :]
         
-        if idx in s:
-            plt.imshow(overlap_1);
-            plt.show();
-            plt.imshow(overlap_2);
-            plt.show()
+        # if idx in s:
+        #     plt.imshow(overlap_1);
+        #     plt.show();
+        #     plt.imshow(overlap_2);
+        #     plt.show()
             
         overlap_2[overlap_2 == self.nodata] = overlap_1[overlap_2 == self.nodata]
         
-        if idx in s:
-            plt.imshow(block)
-            plt.show()
+        # if idx in s:
+        #     plt.imshow(block)
+        #     plt.show()
             
         return block
 
 
 class DownSampler:
-    def __init__(self, image: RasterIn, res: List[Union[float, float]]) -> None:
+    def __init__(self, image: RasterIn,
+                 res: List[Union[float, float]]) -> None:
         pass
     
     def __call__(self, *args: Any, **kwds: Any) -> Any:
