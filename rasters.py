@@ -1,7 +1,6 @@
-from email.mime import image
 from typing import Any, List, Tuple, Union
 from osgeo import gdal, gdal_array
-from scipy.ndimage import rotate
+from scipy.ndimage import rotate, median_filter
 from scipy.signal import medfilt2d
 
 import matplotlib.pyplot as plt
@@ -87,7 +86,7 @@ class RasterIn:
             return np.pad(array, (
                 (0, diff[0]),
                 (0, diff[1])
-                )
+                ), constant_values=0
                           )
     
     def show(self, idx):
@@ -161,12 +160,12 @@ class RasterOut(RasterIn):
         xsize = min(tile_size, self.XSize - offx)
         ysize = min(tile_size, self.YSize - offy)
         
-        print("Total cols:", self.XSize,
-              "Total rows:", self.YSize,
-              "tile_size:", tile_size,
-              "offx, offy:", (offx, offy),
-              "size: ", (xsize, ysize),
-              "off_size: ", (self.XSize - offx, self.YSize - offy))
+        # print("Total cols:", self.XSize,
+        #       "Total rows:", self.YSize,
+        #       "tile_size:", tile_size,
+        #       "offx, offy:", (offx, offy),
+        #       "size: ", (xsize, ysize),
+        #       "off_size: ", (self.XSize - offx, self.YSize - offy))
         
         return offx, offy, xsize, ysize
     
@@ -176,6 +175,10 @@ class RasterOut(RasterIn):
         return array 
     
     def __get_offset_shift(self, idx):
+        """
+        # TODO
+        # NOT NEEDED -- TEMPORARY
+        """
         return (
             # X
             2 * self.overlaps_xy[0],
@@ -195,34 +198,34 @@ class RasterOut(RasterIn):
                            order=0).shape[-1]
         return tile_size
     
-    def __pad(self, block: np.ndarray, idx, cv=0):
-        shape = block.shape
-        orig  = self.image[idx].shape
+    # def __pad(self, block: np.ndarray, idx, cv=0):
+    #     shape = block.shape
+    #     orig  = self.image[idx].shape
         
-        shape_diff = (-(-(shape[0] - orig[0]) // 2),
-                      -(-(shape[1] - orig[1]) // 2)) 
+    #     shape_diff = (-(-(shape[0] - orig[0]) // 2),
+    #                   -(-(shape[1] - orig[1]) // 2)) 
         
-        diff  = (self.overlaps_xy[0] - shape_diff[0],
-                 self.overlaps_xy[1] - shape_diff[1])
+    #     diff  = (self.overlaps_xy[0] - shape_diff[0],
+    #              self.overlaps_xy[1] - shape_diff[1])
 
-        """
-        Shape_diff : Cols // 2 (605) gives left padding.
-        This has to be equal to self.overlaps_xy[0], for
-        offset calculations to work properly.
+    #     """
+    #     Shape_diff : Cols // 2 (605) gives left padding.
+    #     This has to be equal to self.overlaps_xy[0], for
+    #     offset calculations to work properly.
         
-        Shape_diff : Rows // 2 (-11) gives top padding.
-        This has to be equal to self.overlaps_xy[1], for
-        offset calculations to work properly.
-        """
-        # (1013, 1013) (1024, 408) (-11, 605) (223, -393)
+    #     Shape_diff : Rows // 2 (-11) gives top padding.
+    #     This has to be equal to self.overlaps_xy[1], for
+    #     offset calculations to work properly.
+    #     """
+    #     # (1013, 1013) (1024, 408) (-11, 605) (223, -393)
         
-        pad   = (
-            ((diff[0])*(diff[0] > 0), 0),
-            ((diff[1])*(diff[1] > 0), 0)
-        )
+    #     pad   = (
+    #         ((diff[0])*(diff[0] > 0), 0),
+    #         ((diff[1])*(diff[1] > 0), 0)
+    #     )
         
-        return np.pad(block, pad, constant_values=cv)[-(diff[0])*(diff[0] < 0):,
-                                                      -(diff[1])*(diff[1] < 0):]
+    #     return np.pad(block, pad, constant_values=cv)[-(diff[0])*(diff[0] < 0):,
+    #                                                   -(diff[1])*(diff[1] < 0):]
     
     def __calc_padding(self):
         """
@@ -283,16 +286,12 @@ class RasterOut(RasterIn):
         """
         Write to file block by block.
         """
-        if block.shape[-1] != self.tile_size:
-            print("::"*100)
-            block = self.__pad(block, idx)
                      
         band = self.band
         xoff, yoff, _, _ = self.__get_tile(idx)
         
         block = self.__handle_overlap(idx, block)
         
-        # block = np.where(block == 0, self.image.length - idx, block)
         block = medfilt2d(block, kernel_size=3)
         
         band.WriteArray(
@@ -303,7 +302,20 @@ class RasterOut(RasterIn):
             callback_data=(idx, self.registered_blocks)
             # Ensure NEAREST NEIGHTBOR
         )
+        self.__out_handle.FlushCache()
         
+        """
+        BOTTOM LEFT CORNER NOT WRITTEN PROPERLY WITH 1 TRY
+        REWRITING FIXES THIS ISSUE. POTENTIAL GDAL BUG.
+        """
+        band.WriteArray(
+            block,
+            xoff,
+            yoff,
+            callback=self.__register_block,
+            callback_data=(idx, self.registered_blocks)
+            # Ensure NEAREST NEIGHTBOR
+        )
         self.__out_handle.FlushCache()
     
     def __register_block(self, *args):
@@ -311,11 +323,10 @@ class RasterOut(RasterIn):
         idx, register = args[-1]
         if progress == 1.0 and not idx in register:
             register.append(idx)
-        
+                
     def __handle_overlap(self, idx, block):
 
         xoff, yoff, _, _ = self.__get_tile(idx)
-        print(self.__get_tile(idx))
         if xoff:
             """
             Retrieve west tile and overwrite
@@ -341,24 +352,18 @@ class RasterOut(RasterIn):
         """TESTING SNIPPET"""
         oblock = self.__getitem__(west_block)
         
-        s = {432 - 24 * i for i in range(2)}
-        
+        s = {433 - 24 * i for i in range(2)}
         if idx in s:
             plt.imshow(oblock)
             plt.show()
             plt.imshow(block)
             plt.show()
-        
-        # print("*****WEST Reading Shape: ", oblock.shape)
-        # print("*****WEST Writing Shape: ", block.shape)
                 
         overlap_1 = oblock[
             :, -2*overlap:
         ]
         overlap_2 = block[:, :2*overlap]
-        
-        # print("*****WEST OVERLAP SHAPES:", overlap_1.shape, overlap_2.shape)
-        
+                
         if idx in s:
             plt.imshow(overlap_1);
             plt.show();
@@ -376,27 +381,20 @@ class RasterOut(RasterIn):
     def __north_overlap(self, idx, block, overlap):
         north_block = idx - self.stride
         assert north_block in self.registered_blocks, "Opps, north."
-        s = {433 - 24 * i for i in range(2)}
-        oblock = self.__getitem__(north_block)
-        # print("*****NORTH Reading Shape: ", oblock.shape)
-        # print("*****NORTH Writing Shape: ", block.shape)
         
+        oblock = self.__getitem__(north_block)
+
+        s = {432 - 24 * i for i in range(2)}        
         if idx in s:
             plt.imshow(oblock)
             plt.show()
             plt.imshow(block)
             plt.show()
-            
-        oblock = oblock[
-            :, :
-        ]
-        # print("*****NORTH DIFFERENCES:", difference)
+        
         overlap_1 = oblock[
             -2*overlap:, :
         ]
-        # overlap_1 = overlap_1[:, :block.shape[1]]
         overlap_2 = block[:2*overlap, :]
-        # print("*****NORTH OVERLAP SHAPES:", overlap_1.shape, overlap_2.shape)
         
         if idx in s:
             plt.imshow(overlap_1);
