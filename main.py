@@ -1,6 +1,6 @@
 #! /usr/bin/python3
 
-from projection_tools import Projector
+from projections import Projector
 
 def main():
     Projector().main()

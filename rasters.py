@@ -1,8 +1,8 @@
 from email.mime import image
-from re import X
-from typing import Tuple
+from typing import Any, List, Tuple, Union
 from osgeo import gdal, gdal_array
 from scipy.ndimage import rotate
+from scipy.signal import medfilt2d
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -73,8 +73,23 @@ class RasterIn:
         offx, offy, xsize, ysize = self.__get_tile(idx)
         array = gdal_array.LoadFile(self.path, offx, offy, xsize, ysize)
         array[array < 0] = 0
+        array = self.__pad_corners(array)
         return array 
-        
+    
+    def __pad_corners(self, array):
+        if array.shape == (self.tile_size, self.tile_size):
+            return array
+        else:
+            diff = (
+                self.tile_size - array.shape[-2],
+                self.tile_size - array.shape[-1]
+            )
+            return np.pad(array, (
+                (0, diff[0]),
+                (0, diff[1])
+                )
+                          )
+    
     def show(self, idx):
         array = self.__getitem__(idx)
         
@@ -123,6 +138,7 @@ class RasterOut(RasterIn):
         self.path = self.__out_handle.GetDescription()
 
         self.registered_blocks = []
+        self.nodata = 0
         
     def __len__(self):
         return super().__len__()
@@ -205,12 +221,6 @@ class RasterOut(RasterIn):
             ((diff[1])*(diff[1] > 0), 0)
         )
         
-        print("---------------PADDING IMAGE-----------------")
-        print("ORIGINAL SHAPE:", block.shape)
-        print("PADDED SHAPE:", np.pad(block, pad, constant_values=cv)[-(diff[0])*(diff[0] < 0):,
-                                                      -(diff[1])*(diff[1] < 0):])
-        print("---------------PADDING IMAGE-----------------")
-        
         return np.pad(block, pad, constant_values=cv)[-(diff[0])*(diff[0] < 0):,
                                                       -(diff[1])*(diff[1] < 0):]
     
@@ -234,9 +244,8 @@ class RasterOut(RasterIn):
         stride = self.image.stride
         height = length // stride
         
-        xsize = tile_size * stride - 2 * self.overlaps_xy[0] * stride
-        ysize = tile_size * height - 2 * self.overlaps_xy[1] * height
-        
+        xsize = self.image.XSize + 5*self.overlaps_xy[0]
+        ysize = self.image.YSize + 5*self.overlaps_xy[1]
         return xsize, ysize
     
     def __get_geotransform(self, xpad, ypad):
@@ -283,6 +292,9 @@ class RasterOut(RasterIn):
         
         block = self.__handle_overlap(idx, block)
         
+        # block = np.where(block == 0, self.image.length - idx, block)
+        block = medfilt2d(block, kernel_size=3)
+        
         band.WriteArray(
             block,
             xoff,
@@ -328,53 +340,83 @@ class RasterOut(RasterIn):
         
         """TESTING SNIPPET"""
         oblock = self.__getitem__(west_block)
-        # plt.imshow(oblock)
-        # plt.show()
-        print("*****WEST Reading Shape: ", oblock.shape)
-        print("*****WEST Writing Shape: ", block.shape)
         
-        difference = ((oblock.shape[0] - block.shape[0]),
-                      (oblock.shape[1] - block.shape[1]))
-        oblock = oblock[
-            :, :
-        ]
-        print("*****WEST DIFFERENCES:", difference)
+        s = {432 - 24 * i for i in range(2)}
         
+        if idx in s:
+            plt.imshow(oblock)
+            plt.show()
+            plt.imshow(block)
+            plt.show()
+        
+        # print("*****WEST Reading Shape: ", oblock.shape)
+        # print("*****WEST Writing Shape: ", block.shape)
+                
         overlap_1 = oblock[
             :, -2*overlap:
         ]
-        overlap_1 = overlap_1[:block.shape[0]]
         overlap_2 = block[:, :2*overlap]
         
-        print("*****WEST OVERLAP SHAPES:", overlap_1.shape, overlap_2.shape)
-        # plt.imshow(overlap_1);
-        # plt.show();
-        # plt.imshow(overlap_2);
-        # plt.show()
-        overlap_2[overlap_2 == 0] = overlap_1[overlap_2 == 0]
-        # plt.imshow(overlap_2)
-        # plt.show()
+        # print("*****WEST OVERLAP SHAPES:", overlap_1.shape, overlap_2.shape)
+        
+        if idx in s:
+            plt.imshow(overlap_1);
+            plt.show();
+            plt.imshow(overlap_2);
+            plt.show()
+            
+        overlap_2[overlap_2 == self.nodata] = overlap_1[overlap_2 == self.nodata]
+        
+        if idx in s:
+            plt.imshow(block)
+            plt.show()
         
         return block
     
     def __north_overlap(self, idx, block, overlap):
         north_block = idx - self.stride
         assert north_block in self.registered_blocks, "Opps, north."
+        s = {433 - 24 * i for i in range(2)}
         oblock = self.__getitem__(north_block)
-        print("*****NORTH Reading Shape: ", oblock.shape)
-        print("*****NORTH Writing Shape: ", block.shape)
-        difference = ((oblock.shape[0] - block.shape[0]),
-                      (oblock.shape[1] - block.shape[1]))
+        # print("*****NORTH Reading Shape: ", oblock.shape)
+        # print("*****NORTH Writing Shape: ", block.shape)
+        
+        if idx in s:
+            plt.imshow(oblock)
+            plt.show()
+            plt.imshow(block)
+            plt.show()
+            
         oblock = oblock[
             :, :
         ]
-        print("*****NORTH DIFFERENCES:", difference)
+        # print("*****NORTH DIFFERENCES:", difference)
         overlap_1 = oblock[
             -2*overlap:, :
         ]
-        overlap_1 = overlap_1[:, :block.shape[1]]
+        # overlap_1 = overlap_1[:, :block.shape[1]]
         overlap_2 = block[:2*overlap, :]
-        print("*****NORTH OVERLAP SHAPES:", overlap_1.shape, overlap_2.shape)
-        overlap_2[overlap_2 == 0] = overlap_1[overlap_2 == 0]
+        # print("*****NORTH OVERLAP SHAPES:", overlap_1.shape, overlap_2.shape)
+        
+        if idx in s:
+            plt.imshow(overlap_1);
+            plt.show();
+            plt.imshow(overlap_2);
+            plt.show()
+            
+        overlap_2[overlap_2 == self.nodata] = overlap_1[overlap_2 == self.nodata]
+        
+        if idx in s:
+            plt.imshow(block)
+            plt.show()
+            
         return block
+
+
+class DownSampler:
+    def __init__(self, image: RasterIn, res: List[Union[float, float]]) -> None:
+        pass
+    
+    def __call__(self, *args: Any, **kwds: Any) -> Any:
+        pass
     
