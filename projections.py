@@ -110,6 +110,14 @@ class Projector:
 
 
 class Shadow:
+    """
+    
+    Shadow casting algorithm:
+    
+    Cast shadows according to Sun Location and DSM.
+    Reproject scene according to Observer Location and DSM.
+    
+    """
     def cast_shadows(self, num_p: int):
         processes = []
         
