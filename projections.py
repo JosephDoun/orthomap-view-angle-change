@@ -1,6 +1,5 @@
 
 import logging
-from unicodedata import name
 import numpy as np
 import os
 
@@ -16,7 +15,7 @@ import matplotlib.pyplot as plt
 from multiprocessing import Process, RawArray
 from tqdm import tqdm
 from typing import Tuple
-from rasters import RasterIn
+from rasters import LandCoverCleaner, RasterIn, RasterOut
 
 
 if __name__ == 'main':
@@ -58,7 +57,7 @@ class Projector:
         DSM = 0
         LCM = 1
         """
-        dsm, lcm = line_pair
+        lcm, dsm = line_pair
         mask = None
         
         while mask.any():
@@ -88,67 +87,22 @@ class Projector:
         
         pass
     
-    def __get_overlap(self, image, angle):
-        """
-        Use this to get the full output dimensions.
-        Accounts for padded tiles and overlapping.
-        """
-
-        # Get dimensions of key tiles
-        fshape = rotate(image[0], angle=angle).shape
-        pshape = rotate(
-            image[image.length - image.vstride], angle=angle
-        ).shape
-        
-        # Get the estimated total padding from rotation
-        fpad = (fshape[0] - image.tile_size,
-                fshape[1] - image.tile_size)
-        ppad = (pshape[0] - image.tile_size,
-                pshape[1] - image.tile_size)
-        
-        # Get left, right pad estimates for each dimension.
-        fpad_h = ((fpad[0] // 2, fpad[0] - fpad[0] // 2),
-                  (fpad[1] // 2, fpad[1] - fpad[1] // 2))
-
-        trans = image.handle.GetGeoTrans()
-        
-        trans = (
-            trans[0] - trans[1]*fpad[1][0],
-            trans[1],
-            trans[2],
-            trans[3] - trans[5]*fpad[0][0],
-            trans[4],
-            trans[5]
-        )
-        
-        xsize = (
-            # Full tile shape minus right padding
-            fshape[1] - fpad_h[1][1]
-            # Times number of tiles per row
-            ) * (image.vstride - 1) + pshape[1]
-        
-        ysize = (
-            # Full tile shape minus right padding
-            fshape[0] - fpad_h[0][1]
-            # Times number of tiles per column
-            ) * (image.length / image.vstride - 1) + pshape[0]
-
-        return (ysize, xsize)
-    
-    def __rotate(self, block, angle, cv=-1):
+    def __rotate(self, block, angle, cv=0):
         rotated = rotate(block, angle=angle, cval=cv)
         offsets = self.__get_padded_area(block, rotated)
         return rotated
 
-    def __do_angle__(self, angle, tiles):
-        for tile in tiles:
-            self.__do_tile__(tile, angle)
+    def __do_angle__(self, angle):
+        for idx in range(len(self.lcm)):
+            self.__do_tile__(idx, angle)
     
     def main(self):
         
-        dsm = RasterIn(args.dsm)
-        lcm = RasterIn(args.lcm)
-        
+        self.dsm      = RasterIn(args.dsm)
+        self.lcm      = RasterIn(args.lcm)
+        self.cleaner  = LandCoverCleaner(self.lcm,
+                                         self.dsm)
+        dsm = self.dsm
         for angle in args.angles:
             self.__do_angle__(angle, dsm)
         

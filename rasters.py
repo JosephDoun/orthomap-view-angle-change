@@ -541,7 +541,8 @@ class LandCoverCleaner:
     def __call__(self,
                  lcm: np.ndarray,
                  dsm: np.ndarray,
-                 **kwds: Any) -> Any:
+                 **kwds: Any) -> Tuple[Union[np.ndarray,
+                                             np.ndarray]]:
         
         if self.nodata_dsm:
             lcm[dsm == self.nodata_dsm] = 0
