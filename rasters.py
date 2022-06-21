@@ -33,7 +33,8 @@ class RasterIn:
                  '__ypad',
                  'origin',
                  'res',
-                 'geotrans']
+                 'geotrans',
+                 'nodata']
     
     def __init__(self,
                  path: str,
@@ -47,12 +48,14 @@ class RasterIn:
         self.YSize = self.handle.RasterYSize
         self.XSize = self.handle.RasterXSize
         
-        self.stride = -(-self.XSize // block_size)
+        self.stride  = -(-self.XSize // block_size)
         self.length  = self.stride * -(-self.YSize // block_size)
         
         self.tile_size = block_size
         self.geotrans  = self.handle.GetGeoTransform()
-        self.res = (self.geotrans[1], -self.geotrans[-1])
+        
+        self.res    = (self.geotrans[1], -self.geotrans[-1])
+        self.nodata = self.handle.GetRasterBand(1).GetNoDataValue()
                 
     def __len__(self):
         return self.length
@@ -71,7 +74,7 @@ class RasterIn:
     def __getitem__(self, idx):
         offx, offy, xsize, ysize = self.__get_tile(idx)
         array = gdal_array.LoadFile(self.path, offx, offy, xsize, ysize)
-        array[array < 0] = 0
+        # array[array < 0] = 0
         array = self.__pad_corners(array)
         return array 
     
@@ -290,12 +293,11 @@ class RasterOut(RasterIn):
         """
         Write to file block by block.
         """
-                     
+
         band = self.band
         xoff, yoff, _, _ = self.__get_tile(idx)
         
         block = self.__handle_overlap(idx, block)
-        
         block = medfilt2d(block, kernel_size=3)
         
         band.WriteArray(
@@ -327,7 +329,7 @@ class RasterOut(RasterIn):
         idx, register = args[-1]
         if progress == 1.0 and not idx in register:
             register.append(idx)
-                
+
     def __handle_overlap(self, idx, block):
 
         xoff, yoff, _, _ = self.__get_tile(idx)
@@ -411,15 +413,83 @@ class RasterOut(RasterIn):
         # if idx in s:
         #     plt.imshow(block)
         #     plt.show()
-            
         return block
 
 
-class DownSampler:
-    def __init__(self, image: RasterIn,
-                 res: List[Union[float, float]]) -> None:
+class Resampler:
+    """
+    # TODO
+    # Build class for arbitrary resolution handling.
+    """
+    def __init__(self,
+                 image: RasterIn,
+                 res: float) -> None:
+        self.image     = image
+        self.res_in    = image.res[0]
+        self.res_out   = res
+        self.ratio     = self.res_out / self.res_in
+        self.tile_size = (image.tile_size * self.ratio,) * 2
+        
+        assert not self.tile_size[0] % 1, """
+        
+        Remainder in resampling division must to be 0.
+        
+        Choose another target resolution that produces integer dimensions.
+        
+        """
+        
+        process = "down" if self.res_in < self.res_out else "up"
+
+        self.__process = {
+            "up"  : self.__upsample,
+            "down": self.__downsample
+        }[process]
+        
+    def __upsample(self, block: np.ndarray):
         pass
     
-    def __call__(self, *args: Any, **kwds: Any) -> Any:
+    def __downsample(self, block: np.ndarray):
         pass
     
+    def __call__(self, block: np.ndarray, **kwds: Any) -> Any:
+        return self.__process(block)
+
+
+class AlignmentHandler:
+    """
+    Abstracted just incase.
+    It will probably not be used.
+    
+    # TODO -- MAYBE
+    """
+    def __init__(self) -> None:
+        pass
+    
+    def __compare(self,
+                  lcm: RasterIn,
+                  dsm: RasterIn):
+        pass
+    
+    def __call__(self,
+                 lcm: RasterIn,
+                 dsm: RasterIn,
+                 **kwds: Any) -> Any:
+        pass
+    
+
+class LandCoverCleaner:
+    """
+    Class to discard uncertainties.
+    Assumes identical metadata between pairs.
+    """
+    def __init__(self,
+                 lcm: RasterIn,
+                 dsm: RasterIn) -> None:
+        self.nodata_lcm = lcm.nodata
+        self.nodata_dsm = dsm.nodata
+    
+    def __call__(self,
+                 lcm: np.ndarray,
+                 dsm: np.ndarray,
+                 **kwds: Any) -> Any:
+        pass
