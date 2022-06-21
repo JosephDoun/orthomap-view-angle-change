@@ -34,7 +34,8 @@ class RasterIn:
                  'origin',
                  'res',
                  'geotrans',
-                 'nodata']
+                 'nodata',
+                 'Resampler']
     
     def __init__(self,
                  path: str,
@@ -56,6 +57,8 @@ class RasterIn:
         
         self.res    = (self.geotrans[1], -self.geotrans[-1])
         self.nodata = self.handle.GetRasterBand(1).GetNoDataValue()
+        
+        self._Resampler = None
                 
     def __len__(self):
         return self.length
@@ -74,8 +77,21 @@ class RasterIn:
     def __getitem__(self, idx):
         offx, offy, xsize, ysize = self.__get_tile(idx)
         array = gdal_array.LoadFile(self.path, offx, offy, xsize, ysize)
-        # array[array < 0] = 0
         array = self.__pad_corners(array)
+        
+        if self._Resampler:
+            """
+            Resize array according to desired resolution.
+            
+            #
+            # Resampler Class
+            # NOT IMPLEMENTED
+            # TODO 
+            # 
+
+            """
+            array = self._Resampler(array)
+            
         return array 
     
     def __pad_corners(self, array):
@@ -92,6 +108,17 @@ class RasterIn:
                 ), constant_values=0
                           )
     
+    def SetResampler(self, resampler):
+        self._Resampler = resampler
+        self.geotrans  = (
+            self.geotrans[0],
+            self.geotrans[1] * resampler.ratio,
+            self.geotrans[2],
+            self.geotrans[3],
+            self.geotrans[4],
+            self.geotrans[5] * resampler.ratio
+        )
+    
     def show(self, idx):
         array = self.__getitem__(idx)
         
@@ -102,16 +129,19 @@ class RasterIn:
         plt.close('all')
         
         return self
-    
-    
+
+
 class RasterOut(RasterIn):
-    def __init__(self, image: RasterIn, angles: Tuple, res: Tuple=(0, 0)) -> None:
-        self.image  = image
-        self.handle = image.handle
-        self.angles = angles
-        self.length = image.length
-        self.stride = image.stride
+    def __init__(self,
+                 image: RasterIn,
+                 angles: Tuple,
+                 res: Tuple=(0, 0)) -> None:
         
+        self.image     = image
+        self.handle    = image.handle
+        self.angles    = angles
+        self.length    = image.length
+        self.stride    = image.stride
         self.tile_size = self.__probe_tile_size()
         
         # (xpad_total, ypad_total)
@@ -121,7 +151,6 @@ class RasterOut(RasterIn):
         
         # extract name of file
         self.name = os.path.split(image.path)[-1].split('.')[0]
-        
         # Desired output resolution
         self.res  = res
         
@@ -132,10 +161,10 @@ class RasterOut(RasterIn):
         os.makedirs("Results", exist_ok=True)
 
         self.XSize, self.YSize = self.__get_output_shape()
-        
-        self.__out_handle = self.__get_out_handle(
+        self.__out_handle      = self.__get_out_handle(
             f"Results/{self.name}_{angles[0]}_{angles[1]}.tif"
             )
+        
         self.band = self.__out_handle.GetRasterBand(1)
         self.path = self.__out_handle.GetDescription()
 
@@ -150,14 +179,11 @@ class RasterOut(RasterIn):
         Calculate and return tile coordinates
         and dimensions.
         """
-        row = idx // self.stride
-        col = idx % self.stride
-        
-        off_pad = self.__get_offset_shift(idx)
-        
-        offx = self.tile_size*col - col*off_pad[0]
-        offy = self.tile_size*row - row*off_pad[1]
-
+        row       = idx // self.stride
+        col       = idx % self.stride
+        off_pad   = self.__get_offset_shift(idx)
+        offx      = self.tile_size*col - col*off_pad[0]
+        offy      = self.tile_size*row - row*off_pad[1]
         tile_size = self.tile_size
         
         xsize = min(tile_size, self.XSize - offx)
@@ -173,8 +199,18 @@ class RasterOut(RasterIn):
         return offx, offy, xsize, ysize
     
     def __getitem__(self, idx):
-        offx, offy, xsize, ysize = self.__get_tile(idx)
-        array = gdal_array.LoadFile(self.path, offx, offy, xsize, ysize)
+        (
+            offx,
+            offy,
+            xsize,
+            ysize
+        
+        ) = self.__get_tile(idx)
+        
+        array = gdal_array.LoadFile(self.path,
+                                    offx, offy,
+                                    xsize,
+                                    ysize)
         return array 
     
     def __get_offset_shift(self, idx):
@@ -246,26 +282,28 @@ class RasterOut(RasterIn):
         
         # TODO
         # FIX UNUSED VARIABLES
-        # TEST WITH ARBITRARY INPUT RASTERS
+        # TEST WITH ARBITRARY INPUT SIZES.
+        
         """
         tile_size = self.tile_size
         orig_tile = self.image.tile_size
-        length = self.__len__()
-        stride = self.image.stride
-        height = length // stride
-        
-        xsize = self.image.XSize + 5*self.overlaps_xy[0]
-        ysize = self.image.YSize + 5*self.overlaps_xy[1]
+        length    = self.__len__()
+        stride    = self.image.stride
+        height    = length // stride
+        xsize     = self.image.XSize + 5*self.overlaps_xy[0]
+        ysize     = self.image.YSize + 5*self.overlaps_xy[1]
         return xsize, ysize
     
     def __get_geotransform(self, xpad, ypad):
         geotrans = self.handle.GetGeoTransform()
         geotrans = (
             geotrans[0] - geotrans[1] * xpad,
+            # self.res is DEPRECATED and will be removed.
             float(self.res[0]) or geotrans[1],
             geotrans[2],
             geotrans[3] - geotrans[5] * ypad,
             geotrans[4],
+            # self.res is DEPRECATED and will be removed.
             -float(self.res[1]) or geotrans[5]
         )
         return geotrans
@@ -295,7 +333,11 @@ class RasterOut(RasterIn):
         """
 
         band = self.band
-        xoff, yoff, _, _ = self.__get_tile(idx)
+        
+        (xoff,
+         yoff,
+         _,
+         _)   = self.__get_tile(idx)
         
         block = self.__handle_overlap(idx, block)
         block = medfilt2d(block, kernel_size=3)
@@ -418,12 +460,20 @@ class RasterOut(RasterIn):
 
 class Resampler:
     """
+    
     # TODO
     # Build class for arbitrary resolution handling.
+    # This should probably be instantiated
+    # inside the RasterIn instance of interest.
+    
+    # Perhaps it would even make sense to be
+    # implemented as a decorator. 
+    
     """
     def __init__(self,
                  image: RasterIn,
                  res: float) -> None:
+        
         self.image     = image
         self.res_in    = image.res[0]
         self.res_out   = res
@@ -432,7 +482,7 @@ class Resampler:
         
         assert not self.tile_size[0] % 1, """
         
-        Remainder in resampling division must to be 0.
+        Remainder in resampling division must be 0.
         
         Choose another target resolution that produces integer dimensions.
         
@@ -479,7 +529,7 @@ class AlignmentHandler:
 
 class LandCoverCleaner:
     """
-    Class to discard uncertainties.
+    Class to discard uncertainties and disagreements.
     Assumes identical metadata between pairs.
     """
     def __init__(self,
@@ -492,4 +542,12 @@ class LandCoverCleaner:
                  lcm: np.ndarray,
                  dsm: np.ndarray,
                  **kwds: Any) -> Any:
-        pass
+        
+        if self.nodata_dsm:
+            lcm[dsm == self.nodata_dsm] = 0
+            dsm[dsm == self.nodata_dsm] = 0
+        
+        if (dsm < 0).any():
+            dsm[dsm < 0] = 0
+        
+        return lcm, dsm
