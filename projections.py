@@ -54,8 +54,8 @@ class Projector:
     
     def __do_line__(self, line_pair):
         """
-        DSM = 0
-        LCM = 1
+        LCM = 0
+        DSM = 1
         """
         lcm, dsm = line_pair
         mask = None
