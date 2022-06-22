@@ -30,10 +30,24 @@ parser.add_argument(
     "-a",
     help="Sequence of pairs of angles to produce.",
     dest='angles',
-    metavar="AZIMUTH,ZENITH",
+    metavar="<azimuth,zenith>",
     type=pair,
     required=True,
     nargs="+"
+)
+parser.add_argument(
+    "-c", dest='c',
+    type=int,
+    metavar="<num_cores>",
+    default=4,
+    nargs=1
+)
+parser.add_argument(
+    "-t", dest='threads',
+    type=int,
+    metavar='<num_threads>',
+    default=3,
+    nargs=1
 )
 
 args = parser.parse_args(argv[1:])

@@ -12,11 +12,13 @@ import torch
 import matplotlib.pyplot as plt
 # TODO temp
 
-from multiprocessing import Process, RawArray
+from multiprocessing import Process, Queue as pQueue, RawArray
+from threading import Thread
+from queue import Queue as tQueue, deque
 from tqdm import tqdm
-from typing import Tuple
+from typing import Any, Tuple
 from rasters import LandCoverCleaner, RasterIn, RasterOut
-
+from ctypes import c_uint8
 
 if __name__ == 'main':
     from argparser import args
@@ -46,27 +48,64 @@ Things to solve:
 
 class Projector:
     def __init__(self) -> None:
-        self.tile_size = args.ts;
-    
-    def __get_shared_array__(self, ref_array):
-        shape = ref_array.shape
-        pass
-    
-    def __do_line__(self, line_pair):
-        """
-        LCM = 0
-        DSM = 1
-        """
-        lcm, dsm = line_pair
-        mask = None
+        self.tile_size  = args.ts
+        self.num_p      = args.c
+        self.num_t      = args.threads
+        self.threads    = []
+        self.processes  = []
+        self.p_queue    = pQueue()
+        self.t_queue    = tQueue()
+        self.lcmviewer  = LCMView()
+        self.shadowcast = Shadow()
+        self.prog_queue = tQueue()
+        self.progress   = tqdm(range(100),
+                               desc="Progress:",
+                               unit="No idea yet",
+                               colour='RED')
         
-        while mask.any():
+        self.prog_queue.put(self.progress)
+        
+        for i in range(self.num_p):
+            self.processes.append(
+                Process(target=self.__process,
+                        name=f"Process_{i}",
+                        args=(self.p_queue,))
+            )
+        
+        for i in range(self.num_t):
+            self.threads.append(
+                Thread(target=self.__thread,
+                       name=f"Thread_{i}",
+                       args=(self.t_queue,))
+            )
+        
+    def __make_shared(self, ref_array: np.ndarray):
+        """
+        Pass array to shared memory before multiprocessing.
+        """
+        shape  = ref_array.shape
+        shared = np.frombuffer(
+            RawArray(c_uint8, shape[0]*shape[1]),
+            dtype=ref_array.dtype
+        ).reshape(shape)
+        shared[:, :] = ref_array
+        return shared
+    
+    def __thread(self, queue: tQueue):
+        """
+        # TODO
+        # Implement None as termination flag?
+        """
+        while not queue.empty():
             pass
-    
-    def __line_multiprocessing__(self, tile):
-        pass
-    
-    def __do_tile__(self, tile, angle):
+        queue.put(None)    
+        
+    def __process(self, queue: pQueue):
+        while not queue.empty():
+            pass
+        queue.put(None)
+        
+    def __do_tile(self, tile, angle):
         """
         Tile handling process.
         
@@ -80,21 +119,18 @@ class Projector:
         tile = rotate(tile, rotation_angle)
         
         "Do stuff with it"
-        tile = self.__line_multiprocessing__(tile)
+        tile = self.__multiprocess(tile)
         
         "Rotate back to origin && avoid copy"
         tile[:, :] = rotate(tile, -rotation_angle)
-        
-        pass
     
-    def __rotate(self, block, angle, cv=0):
-        rotated = rotate(block, angle=angle, cval=cv)
-        offsets = self.__get_padded_area(block, rotated)
+    def __rotate(self, block, angle, cv=0, reshape=True):
+        rotated = rotate(block, angle=angle, cval=cv, reshape=reshape)
         return rotated
 
-    def __do_angle__(self, angle):
+    def __do_angle(self, angle):
         for idx in range(len(self.lcm)):
-            self.__do_tile__(idx, angle)
+            self.__do_tile(idx, angle)
     
     def main(self):
         
@@ -104,9 +140,24 @@ class Projector:
                                          self.dsm)
         dsm = self.dsm
         for angle in args.angles:
-            self.__do_angle__(angle, dsm)
+            self.__do_angle(angle, dsm)
         
         return 0;
+
+
+class LCMView:
+    def __init__(self) -> None:
+        pass
+    
+    def __call__(self, line_pair, **kwds: Any) -> Any:
+        """
+        LCM = 0
+        DSM = 1
+        """
+        lcm, dsm = line_pair
+        mask = None
+        while mask.any():
+            pass
 
 
 class Shadow:
