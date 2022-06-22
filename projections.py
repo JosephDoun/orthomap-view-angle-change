@@ -94,11 +94,26 @@ class Projector:
     
     def __thread(self, queue: tQueue):
         """
+        
         # TODO
         # Implement None as termination flag?
+        
+        # Data loading should happen
+        # within each thread.
+        
+        # Therefore tQueue should probably
+        # only receive an index to a tile.
+        
         """
-        while not queue.empty():
-            pass
+        idx = queue.get()
+        while not idx == None:
+            """
+            Load tile and process.
+            """
+            queue.task_done()
+            idx = queue.get()
+        
+        queue.task_done()
         queue.put(None)    
         
     def __process(self, queue: pQueue):
