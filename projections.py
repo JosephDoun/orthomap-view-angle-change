@@ -58,6 +58,7 @@ class Projector:
         self.lcmviewer  = LCMView()
         self.shadowcast = Shadow()
         self.prog_queue = tQueue()
+        # tqdm iterable should come from parser
         self.progress   = tqdm(range(100),
                                desc="Progress:",
                                unit="No idea yet",
