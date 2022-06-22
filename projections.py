@@ -67,18 +67,22 @@ class Projector:
         self.prog_queue.put(self.progress)
         
         for i in range(self.num_p):
-            self.processes.append(
-                Process(target=self.__process,
+            p = Process(target=self.__process,
                         name=f"Process_{i}",
                         args=(self.p_queue,))
+            self.processes.append(
+                p
             )
+            p.start()
         
         for i in range(self.num_t):
-            self.threads.append(
-                Thread(target=self.__thread,
+            t = Thread(target=self.__thread,
                        name=f"Thread_{i}",
                        args=(self.t_queue,))
+            self.threads.append(
+                t
             )
+            t.start()
         
     def __make_shared(self, ref_array: np.ndarray):
         """
