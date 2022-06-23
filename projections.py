@@ -209,7 +209,6 @@ class Projector:
         # Implement RasterOut creation.
         """
         out = RasterOut(self.lcm, angles)
-        out.write()
         for idx in range(len(self.lcm)):
             """
             Perhaps the RasterOut object
