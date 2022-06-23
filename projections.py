@@ -109,13 +109,27 @@ class Projector:
         # only receive an index to a tile.
         
         """
-        idx = queue.get()
-        while not idx == None:
+        payload = queue.get()
+        while not payload == None:
             """
-            Load tile and process.
+            Load tiles and process.
             """
+            
+            idx, azim, zen, out = payload
+            
+            lcm_tile = self.lcm[idx]
+            dsm_tile = self.dsm[idx]
+            
+            result = self.__do_tile(
+                (lcm_tile, dsm_tile),
+                (azim, zen)
+            )
+            
+            "Write block to RasterOut instance"
+            out.write(idx, result)
+            
             queue.task_done()
-            idx = queue.get()
+            payload = queue.get()
         
         queue.task_done()
         queue.put(None)    
@@ -125,32 +139,86 @@ class Projector:
             pass
         queue.put(None)
         
-    def __do_tile(self, tile, angle):
+    def __do_tile(self, tiles, angles):
         """
         Tile handling process.
         
         # TODO
+        # Verify solidity of process.
         """
+        lcm, dsm  = tiles
+        azim, zen = angles
         
-        azim, zen      = angle
-        rotation_angle = azim 
+        """
+        Calculate desired rotation angle,
+        so as to bring azimuth to 270 degrees.
+        """
+        rotation  = 270 - azim
         
         "This is a copy"
-        tile = rotate(tile, rotation_angle)
+        lcm, dsm = self.__rotate((lcm, dsm), rotation)
+        lcm      = self.__make_shared(lcm)
         
-        "Do stuff with it"
-        tile = self.__multiprocess(tile)
+        "Feed the multiprocessing queue"
+        self.__feed_pQueue_n_wait((lcm, dsm), zen)
         
-        "Rotate back to origin && avoid copy"
-        tile[:, :] = rotate(tile, -rotation_angle)
+        "Rotate back to origin"
+        lcm = self.__rotate((lcm,), -rotation, reshape=False)
+        return lcm
     
-    def __rotate(self, block, angle, cv=0, reshape=True):
-        rotated = rotate(block, angle=angle, cval=cv, reshape=reshape)
+    def __feed_pQueue_n_wait(self, tiles: Tuple[np.ndarray], zen):
+        """
+        Launch multiprocessing in here.
+        But wait for processes before proceeding.
+        
+        Need to ensure processes return before
+        thread goes on to write to disk.
+        
+        Need to signal the tile is done somehow.
+        
+        # TODO
+        # Implement signaling that the tile is done.
+        # Implement wait until signal.
+        """
+        for lines in zip(tiles):
+            self.p_queue.put(lines, zen)
+        self.p_queue.put(None)
+    
+    def __rotate(self, blocks: Tuple[RasterIn], angle, cv=0, reshape=True):
+        rotated = []
+        for block in blocks:
+            rotated.append(
+                rotate(block, angle=angle, cval=cv, reshape=reshape)
+            )
         return rotated
 
-    def __do_angle(self, angle):
+    def __do_angles(self, angles):
+        """
+        Each angle has to produce its
+        own RasterOut object for the map.
+        
+        I guess this should happen in here.
+        
+        Eventually, every running thread
+        is desired to be doing its own writing.
+        
+        So it needs access to current
+        tile's RasterOut object.
+        
+        # TODO
+        # Implement RasterOut creation.
+        """
+        out = RasterOut(self.lcm, angles)
+        out.write()
         for idx in range(len(self.lcm)):
-            self.__do_tile(idx, angle)
+            """
+            Perhaps the RasterOut object
+            should be fed through the Queue.
+            
+            # TODO
+            # The above.
+            """
+            self.t_queue.put((idx, *angles, out))
     
     def main(self):
         
@@ -159,8 +227,8 @@ class Projector:
         self.cleaner  = LandCoverCleaner(self.lcm,
                                          self.dsm)
         dsm = self.dsm
-        for angle in args.angles:
-            self.__do_angle(angle, dsm)
+        for angles in args.angles:
+            self.__do_angles(angles, dsm)
         
         return 0;
 
