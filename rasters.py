@@ -35,7 +35,7 @@ class RasterIn:
                  'res',
                  'geotrans',
                  'nodata',
-                 'Resampler']
+                 '_Resampler']
     
     def __init__(self,
                  path: str,

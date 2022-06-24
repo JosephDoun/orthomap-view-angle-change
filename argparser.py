@@ -13,7 +13,7 @@ parser.add_argument(
 parser.add_argument(
     "-dsm",
     type=str,
-    help="Path to DSM.",
+    help="Path to Digital Surface Model.",
     required=True
 )
 parser.add_argument(
