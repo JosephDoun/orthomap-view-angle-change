@@ -34,10 +34,7 @@ logging.basicConfig(
 
 Things to solve:
 
-1. Output is handled by Image class
-2. Same dimensions approximately as input Image.
-3. Same GeoTransform and Projection of input Image.
-4. Exception constitutes rounding due to resolution change.
+# THERE IS A DEADLOCK WHICH NEEDS TO BE LOCATED.
 
 """
 
