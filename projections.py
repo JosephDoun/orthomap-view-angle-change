@@ -5,7 +5,7 @@ import threading
 import numpy as np
 import os
 
-from osgeo import gdal, gdal_array
+from osgeo import gdal
 from scipy.ndimage import rotate
 from scipy.signal  import medfilt2d
 
