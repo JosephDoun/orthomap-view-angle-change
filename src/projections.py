@@ -326,6 +326,8 @@ class Projector:
     def __do_line(self, lcm, dsm, zen):
         print(f"""
               -----------------------  Dummy Line Doer
+              Angle  : {zen}
+              Lines  : {lcm.shape} {dsm.shape}
               Thread : {threading.current_thread().name}
               Process: {multiprocessing.current_process().name} 
               -----------------------  Dummy Line Doer ++++++++++++++++++++++++
