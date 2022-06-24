@@ -34,8 +34,8 @@ logging.basicConfig(
 
 Things to solve:
 
-# THERE IS A DEADLOCK WHICH NEEDS TO BE LOCATED.
-
+1) # BUG THERE IS A DEADLOCK WHICH NEEDS TO BE LOCATED AND FIXED.
+2) Methods should be rearranged in better logical order for better maintenance.
 """
 
 
