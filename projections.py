@@ -1,5 +1,7 @@
 
 import logging
+import multiprocessing
+import threading
 import numpy as np
 import os
 
@@ -16,14 +18,14 @@ from multiprocessing import Process, Queue as pQueue, RawArray
 from threading import Thread
 from queue import Queue as tQueue, deque
 from tqdm import tqdm
-from typing import Any, Tuple
+from typing import Any, List, Tuple
 from rasters import LandCoverCleaner, RasterIn, RasterOut
 from ctypes import c_uint8
 
 if __name__ == 'main':
     from argparser import args
 
-logger = logging.getLogger("ProjectionTools.py");
+logger = logging.getLogger(__file__);
 logger.setLevel(logging.INFO);
 
 logging.basicConfig(
@@ -53,37 +55,43 @@ class Projector:
         self.num_t      = args.threads
         self.threads    = []
         self.processes  = []
-        self.p_queue    = pQueue()
         self.t_queue    = tQueue()
         self.lcmviewer  = LCMView()
         self.shadowcast = Shadow()
-        self.prog_queue = tQueue()
-        # tqdm iterable should come from parser
-        self.progress   = tqdm(range(100),
-                               desc="Progress:",
-                               unit="No idea yet",
-                               colour='RED')
         
-        self.prog_queue.put(self.progress)
-        
-        for i in range(self.num_p):
-            p = Process(target=self.__process,
-                        name=f"Process_{i}",
-                        args=(self.p_queue,))
-            self.processes.append(
-                p
-            )
-            p.start()
+        self.tile_completion_Qs = {}
+        self.p_queues           = {}
         
         for i in range(self.num_t):
+            name = f"Thread_{i}"
             t = Thread(target=self.__thread,
-                       name=f"Thread_{i}",
+                       name=name,
                        args=(self.t_queue,))
             self.threads.append(
                 t
             )
             t.start()
-        
+            
+            "Create dedicated multiprocess Queues"
+            self.tile_completion_Qs[name] = pQueue()
+            self.p_queues[name]           = pQueue()
+            
+            """
+            Load an empty list, whose length will
+            signal thread tile completion.
+            """
+            self.tile_completion_Qs[name].put([])
+    
+    def __make_progress(self, image: RasterIn, angles: List):
+        # tqdm iterable should come from parser
+        todo                  = len(RasterIn) * len(angles)
+        self.__progress_queue = tQueue()
+        self.__progress_bar   = tqdm(range(todo),
+                                     desc="Progress:",
+                                     unit="No idea yet",
+                                     colour='RED')        
+        self.__progress_queue.put(self.__progress_bar)
+    
     def __make_shared(self, ref_array: np.ndarray):
         """
         Pass array to shared memory before multiprocessing.
@@ -96,7 +104,7 @@ class Projector:
         shared[:, :] = ref_array
         return shared
     
-    def __thread(self, queue: tQueue):
+    def __thread(self, thread_queue: tQueue):
         """
         
         # TODO
@@ -109,36 +117,192 @@ class Projector:
         # only receive an index to a tile.
         
         """
-        payload = queue.get()
-        while not payload == None:
+
+        for i in range(self.num_p):
             """
-            Load tiles and process.
+            If each thread has dedicated processes
+            it must also have dedicated processing Queues.
+            
+            # TODO
+            # Implement thread specific processing Queues.
             """
-            
-            idx, azim, zen, out = payload
-            
-            lcm_tile = self.lcm[idx]
-            dsm_tile = self.dsm[idx]
-            
-            result = self.__do_tile(
-                (lcm_tile, dsm_tile),
-                (azim, zen)
+            p = Process(target=self.__process,
+                        name=f"Process_{i}",
+                        args=(
+                            # Feed dedicated queue
+                            self.p_queues[
+                                threading.current_thread().name
+                            ],)
+                        )
+            self.processes.append(
+                p
             )
+            p.start()
+        
+        payload = thread_queue.get()
+        while not payload == None:
+            if isinstance(payload, tuple):
+                """
+                Load tiles and process.
+                """
+                
+                idx, azim, zen, out = payload
+                
+                lcm_tile = self.lcm[idx]
+                dsm_tile = self.dsm[idx]
+                
+                result = self.__do_tile(
+                    (lcm_tile, dsm_tile),
+                    (azim, zen)
+                )
+                
+                "Write block to RasterOut instance."
+                out.write(idx, result)
+                
+                "Count block."
+                progress = self.__progress_queue.get()
+                progress.update(1)
+                self.__progress_queue.put(progress)
+                
+            else:
+                logger.error("Invalid thread payload type.")
+                
+            payload = thread_queue.get()
+        
+        """
+        If signaled to stop (payload is None)
+        then replace the signal in the queue
+        for the rest of the threads.
+        """
+        thread_queue.task_done()
+        thread_queue.put(None)    
+        
+    def __process(self, p_queue: pQueue):
+        """
+        Each process handles 1 line at a time.
+        """
+        
+        payload = p_queue.get()
+        
+        while not payload == None:
+            if isinstance(payload, tuple):
+                
+                lcm, dsm, zen = payload
+                self.__do_line(lcm, dsm, zen)
+                
+                if p_queue.empty():
+                    
+                    """
+                    If Queue is empty, assume no remaining tasks.
+                    
+                    Write on bucket that process is done.
+                    """
+                    
+                    bucket = self.tile_completion_Qs[
+                        threading.current_thread().name
+                    ].get()
+                    
+                    bucket.append(multiprocessing.current_process().name)
+                    
+                    self.tile_completion_Qs[
+                        threading.current_thread().name
+                    ].put(bucket)
+            else:
+                logger.error(f"Invalid process payload type.")
+                                    
+            payload = p_queue.get()
             
-            "Write block to RasterOut instance"
-            out.write(idx, result)
+        """
+        If signaled to stop (payload is None)
+        then replace the signal in the queue
+        for the rest of the processes.
+        """
+        p_queue.task_done()
+        p_queue.put(None)
+    
+    def __feed_pQueue_n_wait(self, tiles: Tuple[np.ndarray], zen):
+        """
+        Feed for multiprocessing in here.
+        But wait for processes to finish
+        before proceeding.
+        
+        Need to ensure processes return before
+        thread goes on to write to disk.
+        
+        Need to signal the tile is done somehow.
+        
+        # TODO
+        # Implement signaling that the tile is done.
+        # Implement wait until signal.
+        # Done. Verify integrity.
+        
+        <bucket>: Expected to be of type List.
+        
+        """
+        
+        for lines in zip(tiles):
+            """
+            Feed tasks to the processes.
+            """
+            self.p_queue.put((*lines, zen))
+        
+        self.__check_thread_completion()
+        return
+    
+    def __check_thread_completion(self):
+        """
+        Unique to each thread.
+        
+        Purpose is to check whether all number
+        of processes within each thread are 
+        out of tasks.
+        
+        Once this condition is true, then return.
+        """
+        
+        "Retrieve the bucket for variable definition"
+        bucket = self.tile_completion_Qs[
+            threading.current_thread().name
+        ].get()
+        
+        while len(bucket) < self.num_p:
             
-            queue.task_done()
-            payload = queue.get()
+            "Return the bucket to processes"
+            self.tile_completion_Qs[
+                threading.current_thread().name
+            ].put(bucket)
+            
+            """
+            
+            This is dead space during which the running
+            processes are expected to be operating.
+            
+            # TODO
+            # Verify concept.
+            
+            """
+            
+            "Reclaim the bucket for inspection"
+            bucket = self.tile_completion_Qs[
+                threading.current_thread().name
+            ].get()
         
-        queue.task_done()
-        queue.put(None)    
+        "Logic assertion"
+        assert self.tile_completion_Qs[
+                threading.current_thread().name
+            ].empty(), "Queue not empty -- logic error"
         
-    def __process(self, queue: pQueue):
-        while not queue.empty():
-            pass
-        queue.put(None)
+        "Clear the bucket for use by the next thread task"
+        bucket.clear()
         
+        "Reload the bucket for use by the next thread task"
+        self.tile_completion_Qs[
+            threading.current_thread().name
+        ].put(bucket)
+        
+        return
+    
+    
     def __do_tile(self, tiles, angles):
         """
         Tile handling process.
@@ -146,8 +310,8 @@ class Projector:
         # TODO
         # Verify solidity of process.
         """
-        lcm, dsm  = tiles
-        azim, zen = angles
+        lcm,  dsm  = tiles
+        azim, zen  = angles
         
         """
         Calculate desired rotation angle,
@@ -166,23 +330,14 @@ class Projector:
         lcm = self.__rotate((lcm,), -rotation, reshape=False)
         return lcm
     
-    def __feed_pQueue_n_wait(self, tiles: Tuple[np.ndarray], zen):
-        """
-        Launch multiprocessing in here.
-        But wait for processes before proceeding.
-        
-        Need to ensure processes return before
-        thread goes on to write to disk.
-        
-        Need to signal the tile is done somehow.
-        
-        # TODO
-        # Implement signaling that the tile is done.
-        # Implement wait until signal.
-        """
-        for lines in zip(tiles):
-            self.p_queue.put(lines, zen)
-        self.p_queue.put(None)
+    def __do_line(self, lcm, dsm, zen):
+        print(f"""
+              -----------------------  Dummy Line Doer
+              Thread : {threading.current_thread().name}
+              Process: {multiprocessing.current_process().name} 
+              -----------------------  Dummy Line Doer ++++++++++++++++++++++++
+              """)
+        return 0
     
     def __rotate(self, blocks: Tuple[RasterIn], angle, cv=0, reshape=True):
         rotated = []
@@ -225,9 +380,11 @@ class Projector:
         self.lcm      = RasterIn(args.lcm)
         self.cleaner  = LandCoverCleaner(self.lcm,
                                          self.dsm)
-        dsm = self.dsm
+        
+        self.__make_progress(self.lcm, args.angles)
+        
         for angles in args.angles:
-            self.__do_angles(angles, dsm)
+            self.__do_angles(angles)
         
         return 0;
 
