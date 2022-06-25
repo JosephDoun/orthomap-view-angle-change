@@ -1,13 +1,12 @@
 
 import logging
-import multiprocessing
-import threading
+from time import sleep
 import numpy as np
 import os
 
 from scipy.ndimage import rotate
 
-from multiprocessing import Process, Queue as pQueue, RawArray
+from multiprocessing import Process, Queue as pQueue, RawArray, current_process
 from threading import Thread, current_thread
 from queue import Queue as tQueue, deque
 from tqdm import tqdm
@@ -20,10 +19,10 @@ if __name__ == 'projections':
     from argparser import args
 
 logger = logging.getLogger(__file__);
-logger.setLevel(logging.INFO);
+logger.setLevel(logging.DEBUG);
 
 logging.basicConfig(
-    format='%(asctime)s %(name)s: %(message)s',
+    format='%(asctime)s:%(levelname)s:%(filename)s:%(processName)s:%(funcName)s:%(lineno)d: %(message)s',
     level=logging.INFO,
     datefmt='%H:%M:%S %b%d'
 )
@@ -81,6 +80,12 @@ class Projector:
                                      colour='RED')        
         self.__progress_queue.put(self.__progress_bar)
     
+    def __update_progress(self):
+        "Count block."
+        progress = self.__progress_queue.get()
+        progress.update(1)
+        self.__progress_queue.put(progress)
+    
     def __make_shared(self, ref_array: np.ndarray):
         """
         Pass array to shared memory before multiprocessing.
@@ -107,29 +112,11 @@ class Projector:
         
         """
 
-        for i in range(self.num_p):
-            """
-            If each thread has dedicated processes
-            it must also have dedicated processing Queues.
-            
-            # TODO
-            # Implement thread specific processing Queues.
-            """
-
-            p = Process(target=self.__process,
-                        name=f"Process_{i}_{threading.current_thread().name}",
-                        args=(
-                            # Feed the dedicated queues
-                            p_queue, c_queue,
-                        )
-                        )
-            self.processes.append(
-                p
-            )
-            p.start()
+        self.__start_thread_processes(p_queue, c_queue)
         
         payload = thread_queue.get()
         while not payload == None:
+            # print(payload, current_process().name)
             if isinstance(payload, tuple):
                 """
                 Load tiles and process.
@@ -147,6 +134,8 @@ class Projector:
                     c_queue
                 )
                 
+                logger.debug("Processed a tile.")
+
                 "Write block to RasterOut instance."
                 out.write(idx, result)
                 
@@ -162,14 +151,33 @@ class Projector:
         then replace the signal in the queue
         for the rest of the threads.
         """
-        thread_queue.task_done()
+        # thread_queue.task_done()
         thread_queue.put(None)    
     
-    def __update_progress(self):
-        "Count block."
-        progress = self.__progress_queue.get()
-        progress.update(1)
-        self.__progress_queue.put(progress)
+    def __start_thread_processes(self, p_queue: pQueue, c_queue: pQueue):
+        """
+        Kick-off processes per thread.
+        """
+        for i in range(self.num_p):
+            """
+            If each thread has dedicated processes
+            it must also have dedicated processing Queues.
+            
+            # TODO
+            # Implement thread specific processing Queues.
+            """
+
+            p = Process(target=self.__process,
+                        name=f"Process_{i}_{current_thread().name}",
+                        args=(
+                            # Feed the dedicated queues
+                            p_queue, c_queue,
+                        )
+                        )
+            self.processes.append(
+                p
+            )
+            p.start()
     
     def __process(self, p_queue: pQueue, c_queue: pQueue):
         """
@@ -177,12 +185,15 @@ class Projector:
         """
         
         payload = p_queue.get()
-        
+        # i = 0
         while not payload == None:
+            # logger.debug(f"Process payload idx: {i}")
+            # i += 1
             if isinstance(payload, tuple):
                 
                 lcm, dsm, zen = payload
-                self.__do_line(lcm, dsm, zen)
+                # self.__do_line(lcm, dsm, zen)
+                sleep(.05)
                 
                 if p_queue.empty():
                     
@@ -191,15 +202,14 @@ class Projector:
                     
                     Write on bucket that process is done.
                     """
-                    
+                    # logger.debug("p_queue empty -- retrieving task completion bucket")
                     bucket = c_queue.get()
-                    
-                    bucket.append(multiprocessing.current_process().name)
-                    
+                    bucket.append(current_process().name)
                     c_queue.put(bucket)
+                    # logger.debug("returned bucket")
             else:
                 logger.error(f"Invalid process payload type.")
-                                    
+            
             payload = p_queue.get()
             
         """
@@ -207,7 +217,8 @@ class Projector:
         then replace the signal in the queue
         for the rest of the processes.
         """
-        p_queue.task_done()
+        # p_queue.task_done()
+        logger.error("PROCESS FINISHED  ")
         p_queue.put(None)
     
     def __feed_pQueue_n_wait(self,
@@ -271,11 +282,12 @@ class Projector:
             # Verify concept.
             
             """
-            logger.warn(f"Deadlock {current_thread().name}")
-            print("hello")
+            # logger.warn(f"Deadlock {current_thread().name}")
             
             "Reclaim the bucket for inspection"
             bucket = c_queue.get()
+            
+            # logger.error(f"retrieved bucket to check size {len(bucket)}")
         
         "Logic assertion"
         assert c_queue.empty(), "Queue not empty -- logic error"
@@ -307,7 +319,7 @@ class Projector:
         Calculate desired rotation angle,
         so as to bring azimuth to 270 degrees.
         """
-        rotation  = 270 - azim
+        rotation = 270 - azim
         
         "This is a copy"
         lcm, dsm = self.__rotate((lcm, dsm), rotation)
@@ -318,15 +330,15 @@ class Projector:
         
         "Rotate back to origin"
         lcm = self.__rotate((lcm,), -rotation, reshape=False)
-        return lcm
+        return lcm[0]
     
     def __do_line(self, lcm, dsm, zen):
         print(f"""
               -----------------------  Dummy Line Doer
               Angle  : {zen}
               Lines  : {lcm.shape} {dsm.shape}
-              Thread : {threading.current_thread().name}
-              Process: {multiprocessing.current_process().name} 
+              Thread : {current_thread().name}
+              Process: {current_process().name} 
               -----------------------  Dummy Line Doer ++++++++++++++++++++++++
               """)
         return 0
@@ -354,7 +366,9 @@ class Projector:
         
         angles: (Azimuth, Zenith)
         """
-        out = RasterOut(self.lcm, angles)
+        
+        out    = RasterOut(self.lcm, angles)
+           
         for idx in range(len(self.lcm)):
             """
             Perhaps the RasterOut object

@@ -140,6 +140,7 @@ class RasterOut(RasterIn):
         self.image     = image
         self.handle    = image.handle
         self.angles    = angles
+        self.rotation  = 270 - angles[0]
         self.length    = image.length
         self.stride    = image.stride
         self.tile_size = self.__probe_tile_size()
@@ -231,7 +232,7 @@ class RasterOut(RasterIn):
         and retrieve tile dimensions after padding.
         """
         tile_size = rotate(self.image[0],
-                           self.angles[0],
+                           self.rotation,
                            # Rotation place is last 2 dimensions
                            axes=(-1, -2),
                            order=0).shape[-1]
@@ -395,7 +396,8 @@ class RasterOut(RasterIn):
     def __west_overlap(self, idx, block, overlap):
         west_block = idx - 1
         
-        assert west_block in self.registered_blocks, "Oops, west."
+        while not west_block in self.registered_blocks:
+            continue
         
         """TESTING SNIPPET"""
         oblock = self.__getitem__(west_block)
@@ -428,7 +430,9 @@ class RasterOut(RasterIn):
     
     def __north_overlap(self, idx, block, overlap):
         north_block = idx - self.stride
-        assert north_block in self.registered_blocks, "Opps, north."
+        
+        while not north_block in self.registered_blocks:
+            continue
         
         oblock = self.__getitem__(north_block)
 
