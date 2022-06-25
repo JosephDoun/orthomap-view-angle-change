@@ -323,6 +323,7 @@ class RasterOut(RasterIn):
         )
         handle.SetGeoTransform(self.geotrans)
         handle.SetProjection(self.handle.GetProjection())
+        handle.FlushCache()
         return handle
     
     def __get_driver(self) -> gdal.Driver:
@@ -362,7 +363,7 @@ class RasterOut(RasterIn):
             xoff,
             yoff,
             callback=self.__register_block,
-            callback_data=(idx, self.registered_blocks)
+            callback_data=(str(idx)+"_", self.registered_blocks)
             # Ensure NEAREST NEIGHTBOR
         )
         self.__out_handle.FlushCache()
@@ -396,7 +397,7 @@ class RasterOut(RasterIn):
     def __west_overlap(self, idx, block, overlap):
         west_block = idx - 1
         
-        while not west_block in self.registered_blocks:
+        while not str(west_block)+"_" in self.registered_blocks:
             continue
         
         """TESTING SNIPPET"""
@@ -431,7 +432,7 @@ class RasterOut(RasterIn):
     def __north_overlap(self, idx, block, overlap):
         north_block = idx - self.stride
         
-        while not north_block in self.registered_blocks:
+        while not str(north_block)+"_" in self.registered_blocks:
             continue
         
         oblock = self.__getitem__(north_block)

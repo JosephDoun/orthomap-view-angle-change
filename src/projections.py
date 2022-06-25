@@ -33,7 +33,10 @@ logging.basicConfig(
 
 Things to solve:
 
-1) # BUG THERE IS A DEADLOCK WHICH NEEDS TO BE LOCATED AND FIXED.
+1) # BUG RasterOut Class is deadlocking when writing right-side edges.
+   # Probably because north or west tile is never written.
+   # This needs to be figured out.
+    
 2) Methods should be rearranged in better logical order for better maintenance.
 """
 
@@ -133,11 +136,11 @@ class Projector:
                     p_queue,
                     c_queue
                 )
-                
-                logger.debug("Processed a tile.")
 
                 "Write block to RasterOut instance."
                 out.write(idx, result)
+                
+                # logger.debug(f"Processed a tile. Idx: {idx}")
                 
                 self.__update_progress()
                 
@@ -193,7 +196,7 @@ class Projector:
                 
                 lcm, dsm, zen = payload
                 # self.__do_line(lcm, dsm, zen)
-                sleep(.05)
+                [x/2 for x in range(10000)]
                 
                 if p_queue.empty():
                     
@@ -347,7 +350,7 @@ class Projector:
         rotated = []
         for block in blocks:
             rotated.append(
-                rotate(block, angle=angle, cval=cv, reshape=reshape)
+                rotate(block, angle=angle, cval=cv, reshape=reshape, order=0)
             )
         return rotated
 
