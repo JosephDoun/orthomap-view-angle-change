@@ -195,8 +195,7 @@ class Projector:
             if isinstance(payload, tuple):
                 
                 lcm, dsm, zen = payload
-                # self.__do_line(lcm, dsm, zen)
-                [x/2 for x in range(10000)]
+                self.__do_line(lcm, dsm, zen)
                 
                 if p_queue.empty():
                     
@@ -336,15 +335,15 @@ class Projector:
         return lcm[0]
     
     def __do_line(self, lcm, dsm, zen):
-        print(f"""
-              -----------------------  Dummy Line Doer
-              Angle  : {zen}
-              Lines  : {lcm.shape} {dsm.shape}
-              Thread : {current_thread().name}
-              Process: {current_process().name} 
-              -----------------------  Dummy Line Doer ++++++++++++++++++++++++
-              """)
-        return 0
+        # print(f"""
+        #       -----------------------  Dummy Line Doer
+        #       Angle  : {zen}
+        #       Lines  : {lcm.shape} {dsm.shape}
+        #       Thread : {current_thread().name}
+        #       Process: {current_process().name} 
+        #       -----------------------  Dummy Line Doer ++++++++++++++++++++++++
+        #       """)
+        return [x**2+zen for x in range(100000)]
     
     def __rotate(self, blocks: Tuple[RasterIn], angle, cv=0, reshape=True):
         rotated = []

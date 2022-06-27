@@ -12,16 +12,18 @@ from osgeo import gdal
 
 
 class LCMView:
-    def __init__(self) -> None:
-        pass
+    def __init__(self, res) -> None:
+        self.res = res
     
-    def __call__(self, line_pair, **kwds: Any) -> Any:
+    def __call__(self, lcm, dsm, zen, **kwds: Any) -> Any:
         """
         LCM = 0
         DSM = 1
         """
-        lcm, dsm = line_pair
-        mask = None
+        elev = 90 - zen
+        tan  = np.tan(elev * np.pi / 180)
+        
+        mask = dsm > 0
         while mask.any():
             pass
 
@@ -63,6 +65,9 @@ class Shadow:
         """
         line, bh = line_pair
         mask = bh > 0
+        
+        # Why am I computing tan(theta) each time?
+        # Compute it once here.
         theta = (90 - self.sun_angles['zenith']) * np.pi / 180
         
         while mask.any():

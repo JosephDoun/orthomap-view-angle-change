@@ -1,11 +1,19 @@
 from typing import Any, List, Tuple, Union
 from osgeo import gdal, gdal_array
-from scipy.ndimage import rotate, median_filter
+from scipy.ndimage import rotate
 from scipy.signal import medfilt2d
 
 import matplotlib.pyplot as plt
 import numpy as np
 import os
+import logging
+
+logger = logging.getLogger(__name__)
+logging.basicConfig(
+    format='%(asctime)s:%(levelname)s:%(filename)s:%(processName)s:%(funcName)s:%(lineno)d: %(message)s',
+    level=logging.DEBUG,
+    datefmt='%H:%M:%S %b%d'
+)
 
 
 class RasterIn:
@@ -152,7 +160,9 @@ class RasterOut(RasterIn):
         
         # extract name of file
         self.name = os.path.split(image.path)[-1].split('.')[0]
+        
         # Desired output resolution
+        # To be removed. DEPRECATED.
         self.res  = res
         
         # Compute new geotransformation
@@ -288,20 +298,28 @@ class RasterOut(RasterIn):
         """
         tile_size = self.tile_size
         orig_tile = self.image.tile_size
+        
         length    = self.__len__()
         stride    = self.image.stride
         height    = length // stride
-        xsize     = self.image.XSize + 5*self.overlaps_xy[0]
-        ysize     = self.image.YSize + 5*self.overlaps_xy[1]
+                
+        xsize     = tile_size * stride
+        ysize     = tile_size * height
+        
+        assert self.image.XSize / orig_tile <= xsize / tile_size, f"{xsize}"
+        assert self.image.YSize / orig_tile <= ysize / tile_size, f"{ysize}"
+        
         return xsize, ysize
     
     def __get_geotransform(self, xpad, ypad):
         geotrans = self.handle.GetGeoTransform()
         geotrans = (
+            # Translate X
             geotrans[0] - geotrans[1] * xpad,
             # self.res is DEPRECATED and will be removed.
             float(self.res[0]) or geotrans[1],
             geotrans[2],
+            # Translate Y
             geotrans[3] - geotrans[5] * ypad,
             geotrans[4],
             # self.res is DEPRECATED and will be removed.
@@ -398,6 +416,7 @@ class RasterOut(RasterIn):
         west_block = idx - 1
         
         while not str(west_block)+"_" in self.registered_blocks:
+            # logger.debug(f"{idx} not written to file\r")
             continue
         
         """TESTING SNIPPET"""
@@ -433,6 +452,7 @@ class RasterOut(RasterIn):
         north_block = idx - self.stride
         
         while not str(north_block)+"_" in self.registered_blocks:
+            logger.debug(f"{idx} not written to file")
             continue
         
         oblock = self.__getitem__(north_block)
