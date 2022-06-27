@@ -11,7 +11,7 @@ import logging
 logger = logging.getLogger(__name__)
 logging.basicConfig(
     format='%(asctime)s:%(levelname)s:%(filename)s:%(processName)s:%(funcName)s:%(lineno)d: %(message)s',
-    level=logging.DEBUG,
+    level=logging.INFO,
     datefmt='%H:%M:%S %b%d'
 )
 
@@ -303,11 +303,8 @@ class RasterOut(RasterIn):
         stride    = self.image.stride
         height    = length // stride
                 
-        xsize     = tile_size * stride
-        ysize     = tile_size * height
-        
-        assert self.image.XSize / orig_tile <= xsize / tile_size, f"{xsize}"
-        assert self.image.YSize / orig_tile <= ysize / tile_size, f"{ysize}"
+        xsize     = (tile_size - self.overlaps_xy[0]) * stride
+        ysize     = (tile_size - self.overlaps_xy[1]) * height
         
         return xsize, ysize
     
@@ -416,7 +413,7 @@ class RasterOut(RasterIn):
         west_block = idx - 1
         
         while not str(west_block)+"_" in self.registered_blocks:
-            # logger.debug(f"{idx} not written to file\r")
+            logger.debug(f"{idx} not written to file\r")
             continue
         
         """TESTING SNIPPET"""

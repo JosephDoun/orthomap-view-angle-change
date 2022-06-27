@@ -27,27 +27,27 @@ for angle in tqdm(angles):
                   outimg.length,
                   "padding per tile:", outimg.padded_space_xy)
     
-    # for i in tqdm(range(len(inimg))):
+    for i in tqdm(range(len(inimg))):
         
-    #     rot = rotate(inimg[i], rotation, order=0, reshape=True)
-    #     unrot = rotate(rot, -rotation, order=0, reshape=False)
+        rot = rotate(inimg[i], rotation, order=0, reshape=True)
+        unrot = rotate(rot, -rotation, order=0, reshape=False)
         
-    #     try:
-    #         outimg.write(i, unrot)
+        try:
+            outimg.write(i, unrot)
             
-    #     except Exception as e:
-    #         print("Out:", outimg.XSize, outimg.YSize, outimg.tile_size,
-    #               outimg.XSize / outimg.tile_size,
-    #               outimg.YSize / outimg.tile_size)
-    #         print("In:", inimg.XSize, inimg.YSize, inimg.tile_size,
-    #               inimg.XSize / inimg.tile_size,
-    #               inimg.YSize / inimg.tile_size)
-    #         print(outimg.overlaps_xy,
-    #               inimg.stride,
-    #               outimg.stride,
-    #               inimg.length,
-    #               outimg.length,
-    #               "padding per tile:", outimg.padded_space_xy)
-    #         raise Exception(e)
+        except Exception as e:
+            print("Out:", outimg.XSize, outimg.YSize, outimg.tile_size,
+                  outimg.XSize / outimg.tile_size,
+                  outimg.YSize / outimg.tile_size)
+            print("In:", inimg.XSize, inimg.YSize, inimg.tile_size,
+                  inimg.XSize / inimg.tile_size,
+                  inimg.YSize / inimg.tile_size)
+            print(outimg.overlaps_xy,
+                  inimg.stride,
+                  outimg.stride,
+                  inimg.length,
+                  outimg.length,
+                  "padding per tile:", outimg.padded_space_xy)
+            raise Exception(e)
             
     
