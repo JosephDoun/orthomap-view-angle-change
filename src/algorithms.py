@@ -12,7 +12,7 @@ from osgeo import gdal
 
 
 class LCMView:
-    def __init__(self, res) -> None:
+    def __init__(self, res=1) -> None:
         self.res = res
     
     def __call__(self, lcm, dsm, zen, **kwds: Any) -> Any:

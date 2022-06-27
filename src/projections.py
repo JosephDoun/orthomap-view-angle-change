@@ -343,7 +343,7 @@ class Projector:
         #       Process: {current_process().name} 
         #       -----------------------  Dummy Line Doer ++++++++++++++++++++++++
         #       """)
-        return [x**2+zen for x in range(100000)]
+        return [x+zen for x in range(10000)]
     
     def __rotate(self, blocks: Tuple[RasterIn], angle, cv=0, reshape=True):
         rotated = []
