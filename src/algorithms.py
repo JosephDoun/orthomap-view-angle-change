@@ -12,6 +12,9 @@ from osgeo import gdal
 
 
 class LCMView:
+    """
+        Land-cover view shifting algorithm.
+    """
     
     BUILDINGS = 1
     WALLS     = 254
@@ -20,7 +23,7 @@ class LCMView:
     
     def __init__(self,
                  res=1) -> None:
-        self.res        = res
+        self.res = res
         
     def __call__(self, lcm, dsm, zen, **kwds: Any) -> Any:
         """
