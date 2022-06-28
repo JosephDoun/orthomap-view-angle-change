@@ -40,7 +40,7 @@ parser.add_argument(
     type=int,
     metavar="<num_cores>",
     default=4,
-    nargs=1
+    # nargs=1
 )
 parser.add_argument(
     "-t", dest='threads',

@@ -12,20 +12,55 @@ from osgeo import gdal
 
 
 class LCMView:
-    def __init__(self, res=1) -> None:
-        self.res = res
     
+    BUILDINGS = 1
+    WALLS     = 254
+    DEDIC     = 200
+    EVERG     = 225
+    
+    def __init__(self,
+                 res=1) -> None:
+        self.res        = res
+        
     def __call__(self, lcm, dsm, zen, **kwds: Any) -> Any:
         """
-        LCM = 0
-        DSM = 1
+        Land-cover view shifting algorithm.
         """
+        
         elev = 90 - zen
         tan  = np.tan(elev * np.pi / 180)
         
         mask = dsm > 0
+        
+        # logger.error("Processing line")
+                
         while mask.any():
-            pass
+            
+            "Get first true element && element info"
+            idx     = np.where(mask)[0][0]
+            height  = dsm[idx]
+            cover   = lcm[idx]
+
+            d       = int(round(height / tan))
+
+            if cover == self.BUILDINGS:
+                "First occurrence sufficient for wall definition"
+                logger.error("Buildings")
+                lcm[:d+1] = self.WALLS
+                
+                assert lcm[d] == self.WALLS
+            
+            return
+                
+            "Update mask"
+            lcm, dsm = lcm[d:], dsm[d:]
+            mask = dsm > 0
+            
+    def __roof_handling(self):
+        pass
+    
+    def __tree_handling(self):
+        pass
 
 
 class Shadow:
@@ -37,16 +72,6 @@ class Shadow:
     Reproject scene according to Observer Location and DSM.
     
     """
-    def cast_shadows(self, num_p: int):
-        processes = []
-        
-        shared = self.shadows
-        # This consumes memory uneccessarily
-        # It will need to be substituted in the future.
-        heights = self.azimuth_shift(self.bh_array)
-            
-        return shared
-    
     def casting_process(self, cast, bh):
         """
         Intermediate shadow-casting process.

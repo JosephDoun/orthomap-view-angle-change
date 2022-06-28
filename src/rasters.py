@@ -16,6 +16,25 @@ logging.basicConfig(
 )
 
 
+"""
+# BUG TODO FIX
+
+# RasterOut class
+
+# There is probably a BUG within __get_tile method
+# or __handle_overlap method which makes writing
+# behave differently when tile size is odd
+# resulting in gaps between tiles while writing.
+
+# The BUG is probably in __handle_overlap
+# because error is accumulating to bottom right corner.
+
+# BUG __handle_overlap uses __padding_xy and __overlaps_xy
+# attributes which get defined in constructor.
+# The BUG probably originates there.
+"""
+
+
 class RasterIn:
     """
     Class to be reading large geo-images
@@ -154,6 +173,7 @@ class RasterOut(RasterIn):
         self.tile_size = self.__probe_tile_size()
         
         # (xpad_total, ypad_total)
+        "# BUG could also be here -- most likely."
         self.padded_space_xy = self.__calc_padding()
         self.overlaps_xy     = (self.padded_space_xy[0] // 2,
                                 self.padded_space_xy[1] // 2)
@@ -199,6 +219,11 @@ class RasterOut(RasterIn):
         
         xsize = min(tile_size, self.XSize - offx)
         ysize = min(tile_size, self.YSize - offy)
+        
+        """
+        # BUG either in here
+        # or in __handle_overlap()
+        """
         
         # print("Total cols:", self.XSize,
         #       "Total rows:", self.YSize,
@@ -565,10 +590,10 @@ class LandCoverCleaner:
                  dsm: np.ndarray,
                  **kwds: Any) -> Tuple[Union[np.ndarray,
                                              np.ndarray]]:
-        
-        if self.nodata_dsm:
-            lcm[dsm == self.nodata_dsm] = 0
-            dsm[dsm == self.nodata_dsm] = 0
+        lcm[lcm == 0] = 1
+        # if self.nodata_dsm:
+        #     lcm[dsm == self.nodata_dsm] = 0
+        #     dsm[dsm == self.nodata_dsm] = 0
         
         if (dsm < 0).any():
             dsm[dsm < 0] = 0

@@ -1,16 +1,20 @@
 
+from concurrent.futures import thread
 import logging
+import multiprocessing
+import threading
 from time import sleep
+import traceback
 import numpy as np
 import os
 
 from scipy.ndimage import rotate
 
-from multiprocessing import Process, Queue as pQueue, RawArray, current_process
+from multiprocessing import JoinableQueue, Process, Queue as pQueue, RawArray, current_process
 from threading import Thread, current_thread
-from queue import Queue as tQueue, deque
+from queue import Empty, Queue as tQueue, deque
 from tqdm import tqdm
-from typing import Any, Dict, List, Tuple
+from typing import Any, Callable, Dict, Iterable, List, Mapping, Tuple
 from rasters import LandCoverCleaner, RasterIn, RasterOut
 from algorithms import LCMView, Shadow
 from ctypes import c_uint8
@@ -23,7 +27,7 @@ logger.setLevel(logging.DEBUG);
 
 logging.basicConfig(
     format='%(asctime)s:%(levelname)s:%(filename)s:%(processName)s:%(funcName)s:%(lineno)d: %(message)s',
-    level=logging.INFO,
+    level=logging.DEBUG,
     datefmt='%H:%M:%S %b%d'
 )
 
@@ -42,13 +46,28 @@ Things to solve:
 
 
 class Projector:
+    """
+    
+    # TODO
+    # Movie multiprocessing from spawning processes
+    # To daemons. Keep constant workers up.
+    
+    """
     def __init__(self) -> None:
         self.tile_size  = args.ts
         self.num_p      = args.c
         self.num_t      = args.threads
         self.threads    = []
         self.processes  = []
+        self.deamons    = []
         self.t_queue    = tQueue()
+        self.d_queue    = pQueue()
+        self.t_comple_Q = pQueue()
+                
+        self.algorithms = {
+            "lcmv": LCMView,
+            "shad": Shadow
+        }
         self.lcmviewer  = LCMView()
         self.shadowcast = Shadow()
         
@@ -59,19 +78,30 @@ class Projector:
             
             name    = f"Thread_{i}"
             
-            p_queue = pQueue()
-            c_queue = pQueue()
-            c_queue.put([])
+            # p_queue = JoinableQueue()
+            # c_queue = pQueue()
+            # c_queue.put([])
             
             t = Thread(target=self.__thread,
                        name=name,
-                       args=(self.t_queue, p_queue, c_queue,))
+                       args=(self.t_queue, self.d_queue, self.t_comple_Q,))
             
             self.threads.append(
                 t
             )
             
             t.start()
+            
+        for i in range(self.num_p):
+            name = f"Daemon_{i}"
+            d    = LineProcess(
+                target=self.__process,
+                args=(self.d_queue,
+                      self.t_comple_Q),
+                name=name
+            )
+            self.deamons.append(d)
+            d.start()
     
     def __make_progress(self, image: RasterIn, angles: List):
         # tqdm iterable should come from parser
@@ -82,7 +112,9 @@ class Projector:
                                      unit="blocks",
                                      colour='RED')        
         self.__progress_queue.put(self.__progress_bar)
-    
+
+        self.t_comple_Q.put(np.zeros(todo))
+        
     def __update_progress(self):
         "Count block."
         progress = self.__progress_queue.get()
@@ -114,12 +146,9 @@ class Projector:
         # only receive an index to a tile.
         
         """
-
-        self.__start_thread_processes(p_queue, c_queue)
         
-        payload = thread_queue.get()
-        while not payload == None:
-            # print(payload, current_process().name)
+        for payload in iter(thread_queue.get, None):
+
             if isinstance(payload, tuple):
                 """
                 Load tiles and process.
@@ -127,27 +156,30 @@ class Projector:
                 
                 idx, azim, zen, out = payload
                 
-                lcm_tile = self.lcm[idx]
-                dsm_tile = self.dsm[idx]
+                lcm_tile   = self.lcm[idx]
+                dsm_tile   = self.dsm[idx]
+                
+                (lcm_tile,
+                 dsm_tile) = self.cleaner(lcm_tile, dsm_tile)
                 
                 result = self.__do_tile(
                     (lcm_tile, dsm_tile),
                     (azim, zen),
                     p_queue,
-                    c_queue
+                    c_queue,
+                    idx
                 )
-
+                
                 "Write block to RasterOut instance."
                 out.write(idx, result)
-                
-                # logger.debug(f"Processed a tile. Idx: {idx}")
-                
+                                
                 self.__update_progress()
                 
             else:
+                
                 logger.error("Invalid thread payload type.")
                 
-            payload = thread_queue.get()
+            # payload = thread_queue.get()
         
         """
         If signaled to stop (payload is None)
@@ -157,77 +189,36 @@ class Projector:
         # thread_queue.task_done()
         thread_queue.put(None)    
     
-    def __start_thread_processes(self, p_queue: pQueue, c_queue: pQueue):
-        """
-        Kick-off processes per thread.
-        """
-        for i in range(self.num_p):
-            """
-            If each thread has dedicated processes
-            it must also have dedicated processing Queues.
-            
-            # TODO
-            # Implement thread specific processing Queues.
-            """
-
-            p = Process(target=self.__process,
-                        name=f"Process_{i}_{current_thread().name}",
-                        args=(
-                            # Feed the dedicated queues
-                            p_queue, c_queue,
-                        )
-                        )
-            self.processes.append(
-                p
-            )
-            p.start()
-    
     def __process(self, p_queue: pQueue, c_queue: pQueue):
         """
         Each process handles 1 line at a time.
         """
+        for payload in iter(p_queue.get, None):
+                            
+            lcm, dsm, zen, idx = payload
+            self.__do_line(lcm, dsm, zen)
+            
+            "Keep count of lines written."
+            """
+            # TODO
+            # I should change this to running sums.
+            # An array of size No. Tiles. filled with zeros.
+            # Append 1 for every line processed at the correct
+            # position.
+            """
+            prog       = c_queue.get()
+            prog[idx] += 1
+            c_queue.put(prog)
+                
+        logger.error("FINISHED")
+        return 0
         
-        payload = p_queue.get()
-        # i = 0
-        while not payload == None:
-            # logger.debug(f"Process payload idx: {i}")
-            # i += 1
-            if isinstance(payload, tuple):
-                
-                lcm, dsm, zen = payload
-                self.__do_line(lcm, dsm, zen)
-                
-                if p_queue.empty():
-                    
-                    """
-                    If Queue is empty, assume no remaining tasks.
-                    
-                    Write on bucket that process is done.
-                    """
-                    # logger.debug("p_queue empty -- retrieving task completion bucket")
-                    bucket = c_queue.get()
-                    bucket.append(current_process().name)
-                    c_queue.put(bucket)
-                    # logger.debug("returned bucket")
-            else:
-                logger.error(f"Invalid process payload type.")
-            
-            payload = p_queue.get()
-            
-        """
-        If signaled to stop (payload is None)
-        then replace the signal in the queue
-        for the rest of the processes.
-        """
-        # p_queue.task_done()
-        logger.error("PROCESS FINISHED  ")
-        p_queue.put(None)
-    
     def __feed_pQueue_n_wait(self,
                              tiles: Tuple[np.ndarray],
                              zen: float,
                              p_queue: pQueue,
-                             c_queue: pQueue):
+                             c_queue: pQueue,
+                             idx: int):
         """
         Feed for multiprocessing in here.
         But wait for processes to finish
@@ -251,14 +242,14 @@ class Projector:
             """
             Feed tasks to the processes.
             """
-            p_queue.put((*lines, zen))
+            p_queue.put((*lines, zen, idx))
         
-        self.__check_thread_completion(c_queue)
+        self.__check_thread_completion(c_queue, idx)
         return
     
-    def __check_thread_completion(self, c_queue: pQueue):
+    def __check_thread_completion(self, c_queue: pQueue, idx: int):
         """
-        Unique to each thread.
+        Shared between threads.
         
         Purpose is to check whether all number
         of processes within each thread are 
@@ -267,47 +258,23 @@ class Projector:
         Once this condition is true, then return.
         """
         
-        "Retrieve the bucket for variable definition"
-        bucket = c_queue.get()
-        
-        while len(bucket) < self.num_p:
+        flag = True
+        while flag:
             
-            "Return the bucket to processes"
+            bucket = c_queue.get()
+            flag   = bucket[idx] < self.tile_size
             c_queue.put(bucket)
             
-            """
+            sleep(.3)
             
-            This is dead space during which the running
-            processes are expected to be operating.
-            
-            # TODO
-            # Verify concept.
-            
-            """
-            # logger.warn(f"Deadlock {current_thread().name}")
-            
-            "Reclaim the bucket for inspection"
-            bucket = c_queue.get()
-            
-            # logger.error(f"retrieved bucket to check size {len(bucket)}")
-        
-        "Logic assertion"
-        assert c_queue.empty(), "Queue not empty -- logic error"
-        
-        "Clear the bucket for use by the next thread task"
-        bucket.clear()
-        
-        "Reload the bucket for use by the next thread task"
-        c_queue.put(bucket)
-        
         return
-    
     
     def __do_tile(self,
                   tiles: Tuple,
                   angles: Tuple,
                   p_queue: pQueue,
-                  c_queue: pQueue) -> np.ndarray:
+                  c_queue: pQueue,
+                  idx: int) -> np.ndarray:
         """
         Tile handling process.
         
@@ -316,7 +283,7 @@ class Projector:
         """
         lcm,  dsm  = tiles
         azim, zen  = angles
-        
+                
         """
         Calculate desired rotation angle,
         so as to bring azimuth to 270 degrees.
@@ -327,8 +294,11 @@ class Projector:
         lcm, dsm = self.__rotate((lcm, dsm), rotation)
         lcm      = self.__make_shared(lcm)
         
-        "Feed the multiprocessing queue"
-        self.__feed_pQueue_n_wait((lcm, dsm), zen, p_queue, c_queue)
+        self.__feed_pQueue_n_wait((lcm, dsm), zen, p_queue, c_queue, idx)
+        # logger.debug(f"{p_queue.qsize()}")
+        # self.__start_thread_processes(p_queue, c_queue)
+        # logger.debug(f"{p_queue.qsize()}")
+        "Wait for the processes to return."
         
         "Rotate back to origin"
         lcm = self.__rotate((lcm,), -rotation, reshape=False)
@@ -343,7 +313,8 @@ class Projector:
         #       Process: {current_process().name} 
         #       -----------------------  Dummy Line Doer ++++++++++++++++++++++++
         #       """)
-        return [x+zen for x in range(10000)]
+        self.lcmviewer(lcm, dsm, zen)
+        return
     
     def __rotate(self, blocks: Tuple[RasterIn], angle, cv=0, reshape=True):
         rotated = []
@@ -377,10 +348,13 @@ class Projector:
             should be fed through the Queue.
             
             # TODO
-            # The above.
+            # DONE.
             """
             self.t_queue.put((idx, *angles, out))
-    
+        
+        "Plant sentinel"
+        self.t_queue.put(None)
+        
     def main(self):
         
         self.dsm      = RasterIn(args.dsm)
@@ -394,3 +368,59 @@ class Projector:
             self.__do_angles(angles)
         
         return 0;
+
+
+class LineProcess(Process):
+    """
+    Process subclass to throw Exceptions
+    in the Main Process.
+    """
+    def __init__(self,
+                 group: None = None,
+                 target: Callable[..., Any] | None = ...,
+                 name: str | None = ...,
+                 args: Iterable[Any] = ...,
+                 kwargs: Mapping[str, Any] = {},
+                 *,
+                 daemon: bool | None = ...) -> None:
+        super().__init__(group, target, name, args, kwargs, daemon=daemon)
+        self._pconn, self._cconn = multiprocessing.Pipe()
+        self._exception = None
+    
+    def run(self) -> None:
+        try:
+            super().run()
+            self._cconn.send(None)
+        except Exception as e:
+            tb = traceback.format_exc()
+            self._cconn.send((e, tb))
+            raise e
+        
+    @property
+    def exception(self):
+        if self._pconn.poll():
+            self._exception = self._pconn.recv()
+        return self._exception
+
+
+class TileThread(Thread):
+    """
+    Probably not needed.
+    
+    To be removed.
+    """
+    def __init__(self,
+                 group: None = None,
+                 target: Callable[..., Any] | None = ...,
+                 name: str | None = ...,
+                 args: Iterable[Any] = ...,
+                 kwargs: Mapping[str, Any] | None = {},
+                 *,
+                 daemon: bool | None = ...) -> None:
+        super().__init__(group, target, name, args, kwargs, daemon=daemon)
+    
+    def run(self) -> None:
+        try:
+            super().run()
+        except Exception as e:
+            raise e
