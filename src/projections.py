@@ -54,57 +54,56 @@ class Projector:
     
     """
     def __init__(self) -> None:
-        self.tile_size  = args.ts
-        self.num_p      = args.c
-        self.num_t      = args.threads
-        self.threads    = []
-        self.processes  = []
-        self.deamons    = []
-        self.t_queue    = tQueue()
-        self.d_queue    = pQueue()
-        self.t_comple_Q = pQueue()
+        self.__tile_size  = args.ts
+        self.__num_p      = args.c
+        self.__num_t      = args.threads
+        self.__threads    = []
+        self.__deamons    = []
+        self.__t_queue    = tQueue()
+        self.__d_queue    = pQueue()
+        self.__t_comple_Q = pQueue()
                 
-        self.algorithms = {
+        self.__algorithms = {
             "lcmv": LCMView,
             "shad": Shadow
         }
         
-        self.lcmviewer  = LCMView()
-        self.shadowcast = Shadow()
+        self.__lcmviewer  = LCMView()
+        self.__shadowcast = Shadow()
         
-        self.shared_mem = self.__make_shared_memory()
+        self.__shared_mem = self.__make_shared_memory()
         
-        for i in range(self.num_t):
+        for i in range(self.__num_t):
             
             name    = f"Thread_{i}"
             
             t = Thread(target=self.__thread,
                        name=name,
-                       args=(self.shared_mem[i],
-                             self.t_queue,
-                             self.d_queue,
-                             self.t_comple_Q,))
+                       args=(self.__shared_mem[i],
+                             self.__t_queue,
+                             self.__d_queue,
+                             self.__t_comple_Q,))
             
-            self.threads.append(
+            self.__threads.append(
                 t
             )
             
             t.start()
             
-        for i in range(self.num_p):
+        for i in range(self.__num_p):
             name = f"Daemon_{i}"
             d    = LineProcess(
                 target=self.__process,
-                args=(self.shared_mem,
-                      self.d_queue,
-                      self.t_comple_Q),
+                args=(self.__shared_mem,
+                      self.__d_queue,
+                      self.__t_comple_Q),
                 name=name
             )
-            self.deamons.append(d)
+            self.__deamons.append(d)
             d.start()
     
     def __make_progress(self, image: RasterIn, angles: List):
-        # tqdm iterable should come from parser
+
         todo                  = len(image) * len(angles)
         self.__progress_queue = tQueue()
         self.__progress_bar   = tqdm(range(todo),
@@ -112,26 +111,13 @@ class Projector:
                                      unit="blocks",
                                      colour='RED')        
         self.__progress_queue.put(self.__progress_bar)
-
-        self.t_comple_Q.put(np.zeros(todo))
+        self.__t_comple_Q    .put(np.zeros(todo))
         
     def __update_progress(self):
         "Count block."
         progress = self.__progress_queue.get()
         progress.update(1)
         self.__progress_queue.put(progress)
-    
-    def __make_shared(self, ref_array: np.ndarray):
-        """
-        Pass array to shared memory before multiprocessing.
-        """
-        shape  = ref_array.shape
-        shared = np.frombuffer(
-            RawArray(c_uint8, shape[0]*shape[1]),
-            dtype=np.byte
-        ).reshape(shape)
-        shared[:, :] = ref_array
-        return shared
     
     def __make_shared_memory(self):
         """
@@ -146,14 +132,14 @@ class Projector:
         # with all the subprocesses.
         
         """
-        tile_size     = 2 * self.tile_size
+        tile_size     = 2 * self.__tile_size
         
         shared_array  = np.frombuffer(
             RawArray(
-                c_int8, self.num_t * (tile_size ** 2)
+                c_int8, self.__num_t * (tile_size ** 2)
             ),
             dtype=np.byte
-        ).reshape(self.num_t, tile_size, tile_size)
+        ).reshape(self.__num_t, tile_size, tile_size)
         
         return shared_array
     
@@ -212,10 +198,6 @@ class Projector:
         """
         thread_queue.put(None)
         p_queue     .put(None)    
-    
-    def __kill_daemons(self, p_queue: pQueue):
-        for daemon in self.deamons:
-            p_queue.put(None)
     
     def __process(self,
                   shared_memory: np.ndarray,
@@ -306,7 +288,7 @@ class Projector:
         while flag:
             
             bucket = c_queue.get()
-            flag   = bucket[idx] < self.tile_size
+            flag   = bucket[idx] < self.__tile_size
             c_queue.put(bucket)
             
             # sleep(.5)
@@ -357,7 +339,7 @@ class Projector:
         return lcm[0]
     
     def __do_line(self, lcm, dsm, zen):
-        self.lcmviewer(lcm, dsm, zen)
+        self.__lcmviewer(lcm, dsm, zen)
         return
     
     def __rotate(self, blocks: Tuple[np.ndarray], angle, cv=0, reshape=True):
@@ -388,7 +370,7 @@ class Projector:
         """
         
         out            = RasterOut(self.lcm, angles)
-        self.tile_size = out.tile_size
+        self.__tile_size = out.tile_size
 
         for idx in range(len(self.lcm)):
             """
@@ -398,10 +380,10 @@ class Projector:
             # TODO
             # DONE.
             """
-            self.t_queue.put((idx, *angles, out))
+            self.__t_queue.put((idx, *angles, out))
         
         "Plant sentinel"
-        self.t_queue.put(None)
+        self.__t_queue.put(None)
         
     def main(self):
         
