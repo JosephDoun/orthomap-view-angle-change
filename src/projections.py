@@ -17,7 +17,7 @@ from tqdm import tqdm
 from typing import Any, Callable, Dict, Iterable, List, Mapping, Tuple
 from rasters import LandCoverCleaner, RasterIn, RasterOut
 from algorithms import LCMView, Shadow
-from ctypes import c_uint8
+from ctypes import c_int8, c_uint8
 
 if __name__ == 'projections':
     from argparser import args
@@ -68,23 +68,22 @@ class Projector:
             "lcmv": LCMView,
             "shad": Shadow
         }
+        
         self.lcmviewer  = LCMView()
         self.shadowcast = Shadow()
         
-        self.tile_completion_Qs = {}
-        self.p_queues           = {}
+        self.shared_mem = self.__make_shared_memory()
         
         for i in range(self.num_t):
             
             name    = f"Thread_{i}"
             
-            # p_queue = JoinableQueue()
-            # c_queue = pQueue()
-            # c_queue.put([])
-            
             t = Thread(target=self.__thread,
                        name=name,
-                       args=(self.t_queue, self.d_queue, self.t_comple_Q,))
+                       args=(self.shared_mem[i],
+                             self.t_queue,
+                             self.d_queue,
+                             self.t_comple_Q,))
             
             self.threads.append(
                 t
@@ -96,7 +95,8 @@ class Projector:
             name = f"Daemon_{i}"
             d    = LineProcess(
                 target=self.__process,
-                args=(self.d_queue,
+                args=(self.shared_mem,
+                      self.d_queue,
                       self.t_comple_Q),
                 name=name
             )
@@ -128,22 +128,44 @@ class Projector:
         shape  = ref_array.shape
         shared = np.frombuffer(
             RawArray(c_uint8, shape[0]*shape[1]),
-            dtype=ref_array.dtype
+            dtype=np.byte
         ).reshape(shape)
         shared[:, :] = ref_array
         return shared
     
-    def __thread(self, thread_queue: tQueue, p_queue: pQueue, c_queue: pQueue):
+    def __make_shared_memory(self):
         """
+        Pass array to shared memory before multiprocessing.
         
         # TODO
-        # Implement None as termination flag?
+        # Create a large shared array
+        # Able to hold tiles for num_t
+        # number of threads.
         
-        # Data loading should happen
-        # within each thread.
+        # This large array will be shared
+        # with all the subprocesses.
         
-        # Therefore tQueue should probably
-        # only receive an index to a tile.
+        """
+        tile_size     = 2 * self.tile_size
+        
+        shared_array  = np.frombuffer(
+            RawArray(
+                c_int8, self.num_t * (tile_size ** 2)
+            ),
+            dtype=np.byte
+        ).reshape(self.num_t, tile_size, tile_size)
+        
+        return shared_array
+    
+    def __thread(self,
+                 shared: np.ndarray,
+                 thread_queue: tQueue,
+                 p_queue: pQueue,
+                 c_queue: pQueue):
+        """
+        
+        shared: An excessive shared memory array
+                of shape (2 * tile_size, 2 * tile_size)
         
         """
         
@@ -163,6 +185,7 @@ class Projector:
                  dsm_tile) = self.cleaner(lcm_tile, dsm_tile)
                 
                 result = self.__do_tile(
+                    shared,
                     (lcm_tile, dsm_tile),
                     (azim, zen),
                     p_queue,
@@ -172,35 +195,41 @@ class Projector:
                 
                 "Write block to RasterOut instance."
                 out.write(idx, result)
-                                
+
                 self.__update_progress()
                 
             else:
                 
                 logger.error("Invalid thread payload type.")
-                
-            # payload = thread_queue.get()
-        
+                        
         """
         If signaled to stop (payload is None)
         then replace the signal in the queue
         for the rest of the threads.
+        
+        # Poison pill.
+        
         """
-        # thread_queue.task_done()
         thread_queue.put(None)    
     
-    def __process(self, p_queue: pQueue, c_queue: pQueue):
+    def __process(self,
+                  shared_memory: np.ndarray,
+                  p_queue: pQueue,
+                  c_queue: pQueue):
         """
         Each process handles 1 line at a time.
         """
         for payload in iter(p_queue.get, None):
                             
-            lcm, dsm, zen, idx = payload
+            i, dsm, zen, idx, thread_idx = payload
+            
+            lcm = shared_memory[thread_idx, i, :]
+        
             self.__do_line(lcm, dsm, zen)
             
             "Keep count of lines written."
             """
-            # TODO
+            # TODO -- DONE
             # I should change this to running sums.
             # An array of size No. Tiles. filled with zeros.
             # Append 1 for every line processed at the correct
@@ -238,11 +267,23 @@ class Projector:
         
         """
         
-        for lines in zip(*tiles):
+        thread_i = int(current_thread().name[len("Thread_"):])
+        
+        for i, lines in enumerate(zip(*tiles)):
             """
             Feed tasks to the processes.
+            
+            # TODO
+            # Change implementation
+            # To be feeding only indices.
+            
+            # TODO
+            # tile idx >> Replace with Thread IDX.
+            # 
+            
             """
-            p_queue.put((*lines, zen, idx))
+            lcm, dsm = lines
+            p_queue.put((i, dsm, zen, idx, thread_i))
         
         self.__check_thread_completion(c_queue, idx)
         return
@@ -265,11 +306,12 @@ class Projector:
             flag   = bucket[idx] < self.tile_size
             c_queue.put(bucket)
             
-            sleep(.3)
+            sleep(.2)
             
         return
     
     def __do_tile(self,
+                  shared: np.ndarray,
                   tiles: Tuple,
                   angles: Tuple,
                   p_queue: pQueue,
@@ -286,33 +328,39 @@ class Projector:
                 
         """
         Calculate desired rotation angle,
-        so as to bring azimuth to 270 degrees.
+        so as to bring azimuth to 270 degrees
+        and be able to iterate over rows.
         """
         rotation = 270 - azim
         
         "This is a copy"
-        lcm, dsm = self.__rotate((lcm, dsm), rotation)
-        lcm      = self.__make_shared(lcm)
+        lcm, dsm     = self.__rotate((lcm, dsm), rotation)
+        shape        = lcm.shape
         
+        "Clean shared memory."
+        shared[:, :] = 0
+        
+        "Update shared memory."
+        shared[
+            :shape[0],
+            :shape[1]
+            ]        = lcm
+        
+        "Feed tasks to the processes && wait."        
         self.__feed_pQueue_n_wait((lcm, dsm), zen, p_queue, c_queue, idx)
-        # logger.debug(f"{p_queue.qsize()}")
-        # self.__start_thread_processes(p_queue, c_queue)
-        # logger.debug(f"{p_queue.qsize()}")
-        "Wait for the processes to return."
+        
+        # "# Temporary workaround to BUG"
+        # for l, s in zip(lcm, dsm):
+        #     self.__do_line(l, s, zen)        
         
         "Rotate back to origin"
-        lcm = self.__rotate((lcm,), -rotation, reshape=False)
+        lcm = self.__rotate((shared[:shape[0],
+                                    :shape[1]],),
+                            -rotation,
+                            reshape=False)
         return lcm[0]
     
     def __do_line(self, lcm, dsm, zen):
-        # print(f"""
-        #       -----------------------  Dummy Line Doer
-        #       Angle  : {zen}
-        #       Lines  : {lcm.shape} {dsm.shape}
-        #       Thread : {current_thread().name}
-        #       Process: {current_process().name} 
-        #       -----------------------  Dummy Line Doer ++++++++++++++++++++++++
-        #       """)
         self.lcmviewer(lcm, dsm, zen)
         return
     
@@ -340,8 +388,9 @@ class Projector:
         angles: (Azimuth, Zenith)
         """
         
-        out    = RasterOut(self.lcm, angles)
-           
+        out            = RasterOut(self.lcm, angles)
+        self.tile_size = out.tile_size
+
         for idx in range(len(self.lcm)):
             """
             Perhaps the RasterOut object
@@ -369,6 +418,9 @@ class Projector:
         
         return 0;
 
+    def __start_daemons(self):
+        pass
+    
 
 class LineProcess(Process):
     """

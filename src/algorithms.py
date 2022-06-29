@@ -34,30 +34,31 @@ class LCMView:
         tan  = np.tan(elev * np.pi / 180)
         
         mask = dsm > 0
-        
+        lcm[lcm == self.BUILDINGS] = 111
         # logger.error("Processing line")
                 
-        while mask.any():
+        # while mask.any():
             
-            "Get first true element && element info"
-            idx     = np.where(mask)[0][0]
-            height  = dsm[idx]
-            cover   = lcm[idx]
+        #     "Get first true element && element info"
+        #     idx     = np.where(mask)[0][0]
+        #     height  = dsm[idx]
+        #     cover   = lcm[idx]
 
-            d       = int(round(height / tan))
+        #     d       = int(round(height / tan))
 
-            if cover == self.BUILDINGS:
-                "First occurrence sufficient for wall definition"
-                logger.error("Buildings")
-                lcm[:d+1] = self.WALLS
+        #     # if cover == self.BUILDINGS:
+        #         # "First occurrence sufficient for wall definition"
+        #         # # logger.error("Buildings")
+        #         # lcm[:d+1] = self.WALLS
                 
-                assert lcm[d] == self.WALLS
-            
-            return
+        #         # assert lcm[d] == self.WALLS
+
                 
-            "Update mask"
-            lcm, dsm = lcm[d:], dsm[d:]
-            mask = dsm > 0
+        return lcm
+                
+            # "Update mask"
+            # lcm, dsm = lcm[d:], dsm[d:]
+            # mask = dsm > 0
             
     def __roof_handling(self):
         pass
