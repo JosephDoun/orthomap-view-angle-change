@@ -10,14 +10,14 @@ import os
 
 from scipy.ndimage import rotate
 
-from multiprocessing import JoinableQueue, Process, Queue as pQueue, RawArray, current_process
+from multiprocessing import Process, Queue as pQueue, RawArray
 from threading import Thread, current_thread
 from queue import Empty, Queue as tQueue, deque
 from tqdm import tqdm
-from typing import Any, Callable, Dict, Iterable, List, Mapping, Tuple
+from typing import Any, Callable, Iterable, List, Mapping, Tuple
 from rasters import LandCoverCleaner, RasterIn, RasterOut
 from algorithms import LCMView, Shadow
-from ctypes import c_int8, c_uint8
+from ctypes import c_uint8
 
 if __name__ == 'projections':
     from argparser import args
@@ -136,7 +136,7 @@ class Projector:
         
         shared_array  = np.frombuffer(
             RawArray(
-                c_int8, self.__num_t * (tile_size ** 2)
+                c_uint8, self.__num_t * (tile_size ** 2)
             ),
             dtype=np.byte
         ).reshape(self.__num_t, tile_size, tile_size)
@@ -226,7 +226,7 @@ class Projector:
             prog[idx] += 1
             c_queue.put(prog)
                 
-        logger.error("FINISHED")
+        logger.debug("FINISHED")
         p_queue.put(None)
         return 0
         
