@@ -210,7 +210,12 @@ class Projector:
         # Poison pill.
         
         """
-        thread_queue.put(None)    
+        thread_queue.put(None)
+        p_queue     .put(None)    
+    
+    def __kill_daemons(self, p_queue: pQueue):
+        for daemon in self.deamons:
+            p_queue.put(None)
     
     def __process(self,
                   shared_memory: np.ndarray,
@@ -240,6 +245,7 @@ class Projector:
             c_queue.put(prog)
                 
         logger.error("FINISHED")
+        p_queue.put(None)
         return 0
         
     def __feed_pQueue_n_wait(self,
@@ -275,11 +281,8 @@ class Projector:
             
             # TODO
             # Change implementation
-            # To be feeding only indices.
-            
-            # TODO
-            # tile idx >> Replace with Thread IDX.
-            # 
+            # To be feeding only indices to shared memory.
+            # DONE.
             
             """
             lcm, dsm = lines
@@ -319,9 +322,6 @@ class Projector:
                   idx: int) -> np.ndarray:
         """
         Tile handling process.
-        
-        # TODO
-        # Verify solidity of process.
         """
         lcm,  dsm  = tiles
         azim, zen  = angles
@@ -337,7 +337,7 @@ class Projector:
         lcm, dsm     = self.__rotate((lcm, dsm), rotation)
         shape        = lcm.shape
         
-        "Clean shared memory."
+        "Clean shared memory. Probably uneccessary."
         shared[:, :] = 0
         
         "Update shared memory."
@@ -347,11 +347,7 @@ class Projector:
             ]        = lcm
         
         "Feed tasks to the processes && wait."        
-        self.__feed_pQueue_n_wait((lcm, dsm), zen, p_queue, c_queue, idx)
-        
-        # "# Temporary workaround to BUG"
-        # for l, s in zip(lcm, dsm):
-        #     self.__do_line(l, s, zen)        
+        self.__feed_pQueue_n_wait((lcm, dsm), zen, p_queue, c_queue, idx)      
         
         "Rotate back to origin"
         lcm = self.__rotate((shared[:shape[0],
@@ -364,7 +360,10 @@ class Projector:
         self.lcmviewer(lcm, dsm, zen)
         return
     
-    def __rotate(self, blocks: Tuple[RasterIn], angle, cv=0, reshape=True):
+    def __rotate(self, blocks: Tuple[np.ndarray], angle, cv=0, reshape=True):
+        """
+        Rotate each block and return a list of rotated blocks.
+        """
         rotated = []
         for block in blocks:
             rotated.append(
