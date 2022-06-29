@@ -306,7 +306,7 @@ class Projector:
             flag   = bucket[idx] < self.tile_size
             c_queue.put(bucket)
             
-            sleep(.2)
+            # sleep(.5)
             
         return
     

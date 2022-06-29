@@ -52,9 +52,6 @@ class LCMView:
         #         # lcm[:d+1] = self.WALLS
                 
         #         # assert lcm[d] == self.WALLS
-
-                
-        return lcm
                 
             # "Update mask"
             # lcm, dsm = lcm[d:], dsm[d:]
