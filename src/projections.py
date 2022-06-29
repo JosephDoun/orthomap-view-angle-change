@@ -225,7 +225,7 @@ class Projector:
             prog       = c_queue.get()
             prog[idx] += 1
             c_queue.put(prog)
-                
+
         logger.debug("FINISHED")
         p_queue.put(None)
         return 0
