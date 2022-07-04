@@ -16,7 +16,7 @@ from queue import Empty, Queue as tQueue, deque
 from tqdm import tqdm
 from typing import Any, Callable, Iterable, List, Mapping, Tuple
 from rasters import LandCoverCleaner, RasterIn, RasterOut
-from algorithms import LCMView, Shadow
+from algorithms import LandCover, Shadow
 from ctypes import c_uint8
 
 if __name__ == 'projections':
@@ -63,12 +63,12 @@ class Projector:
         self.__d_queue    = pQueue()
         self.__t_comple_Q = pQueue()
                 
-        self.__algorithms = {
-            "lcmv": LCMView,
+        self.__algorithm  = {
+            "lcmv": LandCover,
             "shad": Shadow
         }
         
-        self.__lcmviewer  = LCMView()
+        self.__lcmviewer  = LandCover()
         self.__shadowcast = Shadow()
         
         self.__shared_mem = self.__make_shared_memory()
