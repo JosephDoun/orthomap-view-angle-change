@@ -1,7 +1,7 @@
 import argparse
 from sys import argv
 
-parser = argparse.ArgumentParser("Land Cover Projection Shifter")
+parser = argparse.ArgumentParser("Projector")
 
 parser.add_argument(
     "--tile-size", "-ts",

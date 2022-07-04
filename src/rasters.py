@@ -8,7 +8,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 import os
 
-
 """
 # BUG TODO FIX
 
@@ -26,7 +25,6 @@ import os
 # attributes which get defined in constructor.
 # The BUG probably originates there.
 """
-
 
 class RasterIn:
     """
