@@ -70,41 +70,48 @@ class RasterIn:
         
         self.handle = gdal.Open(path, gdal.GA_ReadOnly)
         
-        self.path = path
-        self.name = os.path.split(path)[-1].split('.')[0]
+        self.path   = path
+        self.name   = os.path.split(path)[-1].split('.')[0]
         
-        self.YSize = self.handle.RasterYSize
-        self.XSize = self.handle.RasterXSize
+        self.YSize  = self.handle.RasterYSize
+        self.XSize  = self.handle.RasterXSize
         
-        self.stride  = -(-self.XSize // block_size)
-        self.length  = self.stride * -(-self.YSize // block_size)
+        self.stride    = -(-self.XSize // block_size)
+        self.length    = self.stride * -(-self.YSize // block_size)
         
         self.tile_size = block_size
         self.geotrans  = self.handle.GetGeoTransform()
         
-        self.res    = (self.geotrans[1], -self.geotrans[-1])
-        self.nodata = self.handle.GetRasterBand(1).GetNoDataValue()
+        self.res       = (self.geotrans[1], -self.geotrans[-1])
+        self.nodata    = self.handle.GetRasterBand(1).GetNoDataValue()
         
         self._Resampler = None
                 
     def __len__(self):
         return self.length
     
-    def __get_tile(self, idx, off_pad=(0, 0)):
-        row = idx // self.stride
-        col = idx % self.stride
+    def __get_tile(self, idx):
+        row   = idx // self.stride
+        col   = idx % self.stride
         
-        offx = self.tile_size*col
-        offy = self.tile_size*row
+        offx  = self.tile_size*col
+        offy  = self.tile_size*row
         
         xsize = min(self.tile_size, self.XSize - col*self.tile_size)
         ysize = min(self.tile_size, self.YSize - row*self.tile_size)
         return offx, offy, xsize, ysize
     
     def __getitem__(self, idx):
-        offx, offy, xsize, ysize = self.__get_tile(idx)
-        array = gdal_array.LoadFile(self.path, offx, offy, xsize, ysize)
-        array = self.__pad_corners(array)
+        """
+        Retrieve block through subscription.
+        """
+        (offx,
+         offy,
+         xsize,
+         ysize) = self.__get_tile(idx)
+        
+        array   = gdal_array.LoadFile(self.path, offx, offy, xsize, ysize)
+        array   = self.__pad_corners(array)
         
         if self._Resampler:
             """
@@ -137,7 +144,7 @@ class RasterIn:
     
     def SetResampler(self, resampler):
         self._Resampler = resampler
-        self.geotrans  = (
+        self.geotrans   = (
             self.geotrans[0],
             self.geotrans[1] * resampler.ratio,
             self.geotrans[2],
@@ -147,8 +154,7 @@ class RasterIn:
         )
     
     def show(self, idx):
-        array = self.__getitem__(idx)
-        
+        array   = self.__getitem__(idx)
         fig, ax = plt.subplots(1, 1, figsize=(8, 4))
 
         ax.imshow(array)
@@ -590,7 +596,11 @@ class LandCoverCleaner:
                  dsm: np.ndarray,
                  **kwds: Any) -> Tuple[Union[np.ndarray,
                                              np.ndarray]]:
+        "DEBUG: Change Buildings label to 1."
         lcm[lcm == 0] = 1
+        "DEBUG: Remove Buildings w.o. height info."
+        lcm[lcm == 1
+          & dsm == 0] = 0
         # if self.nodata_dsm:
         #     lcm[dsm == self.nodata_dsm] = 0
         #     dsm[dsm == self.nodata_dsm] = 0
