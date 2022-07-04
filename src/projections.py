@@ -1,9 +1,5 @@
-
-from concurrent.futures import thread
 import logging
 import multiprocessing
-import threading
-from time import sleep
 import traceback
 import numpy as np
 import os
@@ -12,7 +8,7 @@ from scipy.ndimage import rotate
 
 from multiprocessing import Process, Queue as pQueue, RawArray
 from threading import Thread, current_thread
-from queue import Empty, Queue as tQueue, deque
+from queue import Queue as tQueue
 from tqdm import tqdm
 from typing import Any, Callable, Iterable, List, Mapping, Tuple
 from rasters import LandCoverCleaner, RasterIn, RasterOut
@@ -26,7 +22,9 @@ logger = logging.getLogger(__file__);
 logger.setLevel(logging.DEBUG);
 
 logging.basicConfig(
-    format='%(asctime)s:%(levelname)s:%(filename)s:%(processName)s:%(funcName)s:%(lineno)d: %(message)s',
+    format='%(asctime)s:%(levelname)s'
+    ':%(filename)s:%(processName)s'
+    ':%(funcName)s:%(lineno)d: %(message)s',
     level=logging.DEBUG,
     datefmt='%H:%M:%S %b%d'
 )
@@ -36,12 +34,10 @@ logging.basicConfig(
 # TODO
 
 Things to solve:
-
-1) # BUG RasterOut Class is deadlocking when writing right-side edges.
-   # Probably because north or west tile is never written.
-   # This needs to be figured out.
     
-2) Methods should be rearranged in better logical order for better maintenance.
+1. Methods should be rearranged in a better
+   logical order for better maintenance.
+   
 """
 
 

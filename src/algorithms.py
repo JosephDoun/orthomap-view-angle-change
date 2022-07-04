@@ -13,8 +13,8 @@ class LandCover:
     
     BUILDINGS = 1
     WALLS     = 254
-    DEDIC     = 200
-    EVERG     = 225
+    DEDICTREE = 200
+    EVERGTREE = 225
     
     def __init__(self,
                  res=1) -> None:
@@ -29,21 +29,23 @@ class LandCover:
         tan  = np.tan(elev * np.pi / 180)
         
         mask = dsm > 0
-        lcm[lcm == self.BUILDINGS] = 111
-        # logger.error("Processing line")
-                
+                        
         while mask.any():
             
             "Get first true element && element info"
             idx     = np.where(mask)[0][0]
             height  = dsm[idx]
             cover   = lcm[idx]
-
             d       = int(round(height / tan))
 
             if cover == self.BUILDINGS:
-                "First occurrence sufficient for wall definition"
-                # logger.error("Buildings")
+                """
+                First occurrence sufficient
+                for wall definition.
+                
+                Assume idx<d+1> is the start
+                of the remaining roof, for now.
+                """
                 lcm[:d+1] = self.WALLS
                 
                 
@@ -52,10 +54,14 @@ class LandCover:
             mask = dsm > 0
             
     def __do_roof(self):
-        pass
+        """
+        Handle the extent of 1 contiguous roof.
+        """
     
     def __do_tree(self):
-        pass
+        """
+        Handle the extent of 1 contiguous roof.
+        """
 
 
 class Shadow:
