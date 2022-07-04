@@ -2,18 +2,11 @@ from typing import Any, List, Tuple, Union
 from osgeo import gdal, gdal_array
 from scipy.ndimage import rotate
 from scipy.signal import medfilt2d
+from logger import logger
 
 import matplotlib.pyplot as plt
 import numpy as np
 import os
-import logging
-
-logger = logging.getLogger(__name__)
-logging.basicConfig(
-    format='%(asctime)s:%(levelname)s:%(filename)s:%(processName)s:%(funcName)s:%(lineno)d: %(message)s',
-    level=logging.INFO,
-    datefmt='%H:%M:%S %b%d'
-)
 
 
 """
@@ -444,7 +437,7 @@ class RasterOut(RasterIn):
         west_block = idx - 1
         
         while not str(west_block)+"_" in self.registered_blocks:
-            logger.debug(f"{idx} not written to file\r")
+            # logger.debug(f"{idx} not written to file\r")
             continue
         
         """TESTING SNIPPET"""
@@ -480,7 +473,7 @@ class RasterOut(RasterIn):
         north_block = idx - self.stride
         
         while not str(north_block)+"_" in self.registered_blocks:
-            logger.debug(f"{idx} not written to file")
+            # logger.debug(f"{idx} not written to file")
             continue
         
         oblock = self.__getitem__(north_block)
@@ -596,14 +589,14 @@ class LandCoverCleaner:
                  dsm: np.ndarray,
                  **kwds: Any) -> Tuple[Union[np.ndarray,
                                              np.ndarray]]:
-        "DEBUG: Change Buildings label to 1."
-        lcm[lcm == 0] = 1
+    
         "DEBUG: Remove Buildings w.o. height info."
-        lcm[lcm == 1
-          & dsm == 0] = 0
-        # if self.nodata_dsm:
-        #     lcm[dsm == self.nodata_dsm] = 0
-        #     dsm[dsm == self.nodata_dsm] = 0
+        # lcm[lcm == 1
+        #   & dsm == 0] = 0
+        
+        if self.nodata_dsm:
+            lcm[dsm == self.nodata_dsm] = 0
+            dsm[dsm == self.nodata_dsm] = 0
         
         if (dsm < 0).any():
             dsm[dsm < 0] = 0

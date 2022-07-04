@@ -1,0 +1,10 @@
+
+BUILDINGS   = 1
+WALLS       = 11
+PAVED       = 40
+WATER       = 85
+SOIL        = 125
+LOW_VEG     = 170
+DEDIC_TREES = 200
+EVERG_TREES = 225
+UNCLASS_VEG = 255

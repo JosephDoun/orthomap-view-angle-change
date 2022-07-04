@@ -1,8 +1,11 @@
 
-import numpy as np
 import logging
+import numpy as np
 
-logger = logging.getLogger()
+from legend import *
+from multiprocessing.dummy import current_process
+from logger import logger
+
 torch = None
 
 
@@ -10,12 +13,6 @@ class LandCover:
     """
         Land-cover view shifting algorithm.
     """
-    
-    BUILDINGS = 1
-    WALLS     = 254
-    DEDICTREE = 200
-    EVERGTREE = 225
-    
     def __init__(self,
                  res=1) -> None:
         self.res = res
@@ -29,29 +26,43 @@ class LandCover:
         tan  = np.tan(elev * np.pi / 180)
         
         mask = dsm > 0
-                        
+        
+        # logger.debug("hello.")
+        
         while mask.any():
             
             "Get first true element && element info"
             idx     = np.where(mask)[0][0]
             height  = dsm[idx]
+            higher  = np.where(dsm > height)[0]
             cover   = lcm[idx]
-            d       = int(round(height / tan))
-
-            if cover == self.BUILDINGS:
+            
+            "Calculate dislocation."
+            d       = min(
+                
+                    # The geometric disclocation.
+                    int(round(height / tan)),
+                    
+                    # Or until the higher object.
+                    higher[0] if higher.any() else 0 
+                    
+                )
+            
+            if cover == BUILDINGS and not lcm[idx-1] in {BUILDINGS, WALLS}:
                 """
                 First occurrence sufficient
                 for wall definition.
                 
-                Assume idx<d+1> is the start
+                Assume idx<d> is the start
                 of the remaining roof, for now.
                 """
-                lcm[:d+1] = self.WALLS
+                lcm[:d] = WALLS
                 
                 
             "Update mask"
+            d        = d or 1
             lcm, dsm = lcm[d:], dsm[d:]
-            mask = dsm > 0
+            mask     = mask[d:]
             
     def __do_roof(self):
         """

@@ -14,20 +14,11 @@ from typing import Any, Callable, Iterable, List, Mapping, Tuple
 from rasters import LandCoverCleaner, RasterIn, RasterOut
 from algorithms import LandCover, Shadow
 from ctypes import c_uint8
+from logger import logger
 
 if __name__ == 'projections':
     from argparser import args
 
-logger = logging.getLogger(__file__);
-logger.setLevel(logging.DEBUG);
-
-logging.basicConfig(
-    format='%(asctime)s:%(levelname)s'
-    ':%(filename)s:%(processName)s'
-    ':%(funcName)s:%(lineno)d: %(message)s',
-    level=logging.DEBUG,
-    datefmt='%H:%M:%S %b%d'
-)
 
 """
 
