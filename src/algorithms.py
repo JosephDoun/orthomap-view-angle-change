@@ -11,6 +11,16 @@ class LandCover:
     """
         Land-cover view shifting algorithm.
     """
+    
+    """
+    Relative elevation in meters
+    to use as a threshold for individual
+    objects that have the concept of walls.
+    
+    Meant to define individual roof parts.
+    """
+    UNITDIFF = .5
+    
     def __init__(self,
                  res=1) -> None:
         self.res = res
