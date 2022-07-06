@@ -12,19 +12,15 @@ import os
 """
 # BUG TODO FIX
 
-# RasterOut class
+# RasterOut class:
+#
+# Output size has shifts of 
+# 1 pixel vertically and/or
+# horizontally depending on
+# rotation angle.
+#
+# Must fix to be reliable.
 
-# There is probably a BUG within __get_tile method
-# or __handle_overlap method which makes writing
-# behave differently when tile size is odd
-# resulting in gaps between tiles while writing.
-
-# The BUG is probably in __handle_overlap
-# because error is accumulating to bottom right corner.
-
-# BUG __handle_overlap uses __padding_xy and __overlaps_xy
-# attributes which get defined in constructor.
-# The BUG probably originates there.
 """
 
 class RasterIn:
