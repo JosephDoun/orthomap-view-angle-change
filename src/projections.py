@@ -298,8 +298,10 @@ class Projector:
         Calculate desired rotation angle,
         so as to bring azimuth to 270 degrees
         and be able to iterate over rows.
+        
+        Note: scipy.ndimage.rotate rotates c-clockwise.
         """
-        rotation = 270 - azim
+        rotation = 90 + azim
         
         "This is a copy"
         lcm, dsm     = self.__rotate((lcm, dsm), rotation)

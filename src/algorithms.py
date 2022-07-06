@@ -57,7 +57,7 @@ class LandCover:
                     higher[0] if higher.any() else 0 
                     
                 )
-                        
+            d = 10
             if all([cover == BUILDINGS,
                     height - dsm[idx-1] > self.UNITDIFF,
                     not lcm[idx-1] == WALLS]):
