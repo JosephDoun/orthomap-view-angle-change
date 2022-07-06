@@ -165,7 +165,7 @@ class RasterOut(RasterIn):
         self.image     = image
         self.handle    = image.handle
         self.angles    = angles
-        self.rotation  = 90 - angles[0]
+        self.rotation  = 90 + angles[0]
         self.length    = image.length
         self.stride    = image.stride
         self.tile_size = self.__probe_tile_size()
