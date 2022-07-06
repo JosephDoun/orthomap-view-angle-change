@@ -355,7 +355,7 @@ class Projector:
         angles: (Azimuth, Zenith)
         """
         
-        out            = RasterOut(self.lcm, angles)
+        out              = RasterOut(self.lcm, angles)
         self.__tile_size = out.tile_size
 
         for idx in range(len(self.lcm)):

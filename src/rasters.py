@@ -3,6 +3,7 @@ from osgeo import gdal, gdal_array
 from scipy.ndimage import rotate
 from scipy.signal import medfilt2d
 from logger import logger
+from legend import *
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -164,7 +165,7 @@ class RasterOut(RasterIn):
         self.image     = image
         self.handle    = image.handle
         self.angles    = angles
-        self.rotation  = 270 - angles[0]
+        self.rotation  = 90 - angles[0]
         self.length    = image.length
         self.stride    = image.stride
         self.tile_size = self.__probe_tile_size()
@@ -588,9 +589,11 @@ class LandCoverCleaner:
                  **kwds: Any) -> Tuple[Union[np.ndarray,
                                              np.ndarray]]:
     
-        "DEBUG: Remove Buildings w.o. height info."
-        # lcm[lcm == 1
-        #   & dsm == 0] = 0
+        """
+        BEHAVIOR: Convert buildings w.o. height info
+                  to paved surfaces class.
+        """
+        lcm[(lcm == BUILDINGS) & (dsm == 0)] = PAVED
         
         if self.nodata_dsm:
             lcm[dsm == self.nodata_dsm] = 0

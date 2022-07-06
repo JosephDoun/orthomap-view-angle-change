@@ -19,7 +19,7 @@ class LandCover:
     
     Meant to define individual roof parts.
     """
-    UNITDIFF = .5
+    UNITDIFF = 3
     
     def __init__(self,
                  res=1) -> None:
@@ -32,21 +32,23 @@ class LandCover:
         
         elev = 90 - zen
         tan  = np.tan(elev * np.pi / 180)
-        
         mask = dsm > 0
+        idx  = 0
         
         # logger.debug("hello.")
-        
-        while mask.any():
+
+        while mask[idx:].any():
             
-            "Get first true element && element info"
-            idx     = np.where(mask)[0][0]
+            "Jump ahead to point of interest."
+            idx    += np.where(mask[idx:])[0][0]
+            
+            "Get info"
             height  = dsm[idx]
-            higher  = np.where(dsm > height)[0]
+            higher  = np.where(dsm[idx:] > height + self.UNITDIFF)[0]
             cover   = lcm[idx]
             
             "Calculate dislocation."
-            d       = min(
+            d = min(
                 
                     # The geometric disclocation.
                     int(round(height / tan)),
@@ -55,8 +57,10 @@ class LandCover:
                     higher[0] if higher.any() else 0 
                     
                 )
-            
-            if cover == BUILDINGS and not lcm[idx-1] in {BUILDINGS, WALLS}:
+                        
+            if all([cover == BUILDINGS,
+                    height - dsm[idx-1] > self.UNITDIFF,
+                    not lcm[idx-1] == WALLS]):
                 """
                 First occurrence sufficient
                 for wall definition.
@@ -64,13 +68,16 @@ class LandCover:
                 Assume idx<d> is the start
                 of the remaining roof, for now.
                 """
-                lcm[:d] = WALLS
+                lcm[idx:idx+d] = WALLS
                 
                 
             "Update mask"
-            d        = d or 1
-            lcm, dsm = lcm[d:], dsm[d:]
-            mask     = mask[d:]
+            d    = d or 1
+            idx += d
+            
+            # logger.error(f"{idx}")
+        
+        # logger.info("Line Done.")
             
     def __do_roof(self):
         """
@@ -79,7 +86,7 @@ class LandCover:
     
     def __do_tree(self):
         """
-        Handle the extent of 1 contiguous roof.
+        Handle the extent of 1 contiguous tree.
         """
 
 
