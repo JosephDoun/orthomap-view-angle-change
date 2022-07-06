@@ -43,21 +43,39 @@ class LandCover:
             idx    += np.where(mask[idx:])[0][0]
             
             "Get info"
-            height  = dsm[idx]
-            higher  = np.where(dsm[idx:] > height + self.UNITDIFF)[0]
-            cover   = lcm[idx]
+            (   
+                # Height before.
+                height_,
+                # Current height.
+                height,
+                # Height after.
+                _height
+             )         = dsm[idx-1:idx+2]
+            rel_height = height - height_
+            higher     = np.where(dsm[idx:] > height + self.UNITDIFF)[0]
+            cover      = lcm[idx]
             
             "Calculate dislocation."
             d = min(
                 
                     # The geometric disclocation.
-                    int(round(height / tan)),
+                    int(
+                        round(
+                            
+                            # Relative height
+                            rel_height / tan, 0
+                            
+                            )
+                        ),
                     
                     # Or until the higher object.
                     higher[0] if higher.any() else 0 
                     
                 )
+            
+            "Temp: Debugging purposes."
             d = 10
+            
             if all([cover == BUILDINGS,
                     height - dsm[idx-1] > self.UNITDIFF,
                     not lcm[idx-1] == WALLS]):
