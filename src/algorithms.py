@@ -50,10 +50,11 @@ class LandCover:
                 height,
                 # Height after.
                 _height
-             )         = dsm[idx-1:idx+2]
-            rel_height = height - height_
-            higher     = np.where(dsm[idx:] > height + self.UNITDIFF)[0]
-            cover      = lcm[idx]
+             )          = dsm[idx-1:idx+2]
+            rel_height  = height - height_
+            rel_height *= rel_height > 0
+            higher      = np.where(dsm[idx:] > height + self.UNITDIFF)[0]
+            cover       = lcm[idx]
             
             "Calculate dislocation."
             d = min(
