@@ -78,8 +78,8 @@ class LandCover:
                     
                 ) if higher else d;
             
-            # "Temp: Debugging purposes."
-            # d = 10
+            "Temp: Debugging purposes."
+            d = 10
             
             if all([
                 # If it's a building.
@@ -104,12 +104,9 @@ class LandCover:
                 lcm[idx:idx+d] = WALLS
                 cover          = WALLS
             
-            if all([
+            elif all([
                 # If it's a high vegetation type.
-                cover in {BUILDINGS},
-                
-                # If previous pixel is not out of grid.
-                lcm[idx-1]
+                cover == BUILDINGS,
                 ]):
                 
                 """
@@ -117,24 +114,21 @@ class LandCover:
                 
                 Do roof projection casting.
                 """
-                lcm[idx:idx+d] = BUILDINGS
+                lcm[idx:idx+d] = cover;
             
-            if all([
-                # If it's a high vegetation type.
-                cover in {BUILDINGS, EVERG_TREES, DEDIC_TREES, UNCLASS_VEG},
+            # elif all([
                 
-                # If the relative height is high enough.
-                rel_height > self.UNITDIFF,
+            #     # If it's a high vegetation type.
+            #     cover in {EVERG_TREES, DEDIC_TREES, UNCLASS_VEG},
                                 
-                # If previous pixel is not out of grid.
-                lcm[idx-1]
-                ]):
+            #     ]):
                 
-                """
-                # TODO
+            #     """
+            #     # TODO
                 
-                Do tree projection casting.
-                """
+            #     Do tree projection casting.
+            #     """
+            #     lcm[idx:idx+d] = 0;
                 
             "Update mask"
             d    = d or 1
