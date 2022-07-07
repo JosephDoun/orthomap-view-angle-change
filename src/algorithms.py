@@ -51,35 +51,50 @@ class LandCover:
                 # Height after.
                 _height
              )          = dsm[idx-1:idx+2]
-            rel_height  = height - height_
-            rel_height *= rel_height > 0
             higher      = np.where(dsm[idx:] > height + self.UNITDIFF)[0]
+            higher      = higher[0] if higher.any() else 0
+            
+            if higher == 1:
+                "Assume lidar error and correct (jump)."
+                rel_height = _height - height_
+            else:
+                "Get direct relative height."
+                rel_height = height - height_
+            
+            rel_height *= rel_height > 0
             cover       = lcm[idx]
             
             "Calculate dislocation."
+            d = int(round(rel_height / tan, 0))
+            
+            "Re-adjust dislocation."
             d = min(
                 
                     # The geometric disclocation.
-                    int(
-                        round(
-                            
-                            # Relative height
-                            rel_height / tan, 0
-                            
-                            )
-                        ),
+                    d,
                     
-                    # Or until the higher object.
-                    higher[0] if higher.any() else 0 
+                    # Or until the higher object
+                    # if closer.
+                    higher
                     
-                )
+                ) if higher else d;
             
-            "Temp: Debugging purposes."
-            d = 10
+            # "Temp: Debugging purposes."
+            # d = 10
             
-            if all([cover == BUILDINGS,
-                    height - dsm[idx-1] > self.UNITDIFF,
-                    not lcm[idx-1] == WALLS]):
+            if all([
+                # If it's a building.
+                cover == BUILDINGS,
+                
+                # If the relative height is high enough.
+                rel_height > self.UNITDIFF,
+                
+                # If previous pixel was not handled already.
+                not lcm[idx-1] == WALLS,
+                
+                # If previous pixel is not out of grid.
+                lcm[idx-1]
+                ]):
                 """
                 First occurrence sufficient
                 for wall definition.

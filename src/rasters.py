@@ -592,9 +592,20 @@ class LandCoverCleaner:
         """
         BEHAVIOR: Convert buildings w.o. height info
                   to paved surfaces class.
-        """
-        lcm[(lcm == BUILDINGS) & (dsm == 0)] = PAVED
+                  
+        Get the intersection between LCM & DSM.
         
+        REVERSELY:
+        If non-elevated surfaces have elevation
+        assume lidar error.
+        """
+        dsm[(dsm > 0) &
+            (lcm != BUILDINGS) &
+            (lcm != EVERG_TREES) &
+            (lcm != DEDIC_TREES)]            = 0
+        dsm[(dsm < 2)]                       = 0
+        lcm[(lcm == BUILDINGS) & (dsm == 0)] = PAVED
+                
         if self.nodata_dsm:
             lcm[dsm == self.nodata_dsm] = 0
             dsm[dsm == self.nodata_dsm] = 0
