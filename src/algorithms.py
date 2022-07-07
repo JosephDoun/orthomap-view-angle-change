@@ -1,7 +1,6 @@
 import numpy as np
 
 from legend import *
-from multiprocessing.dummy import current_process
 from logger import logger
 
 torch = None
@@ -103,7 +102,39 @@ class LandCover:
                 of the remaining roof, for now.
                 """
                 lcm[idx:idx+d] = WALLS
+                cover          = WALLS
+            
+            if all([
+                # If it's a high vegetation type.
+                cover in {BUILDINGS},
                 
+                # If previous pixel is not out of grid.
+                lcm[idx-1]
+                ]):
+                
+                """
+                # TODO
+                
+                Do roof projection casting.
+                """
+                lcm[idx:idx+d] = BUILDINGS
+            
+            if all([
+                # If it's a high vegetation type.
+                cover in {BUILDINGS, EVERG_TREES, DEDIC_TREES, UNCLASS_VEG},
+                
+                # If the relative height is high enough.
+                rel_height > self.UNITDIFF,
+                                
+                # If previous pixel is not out of grid.
+                lcm[idx-1]
+                ]):
+                
+                """
+                # TODO
+                
+                Do tree projection casting.
+                """
                 
             "Update mask"
             d    = d or 1
