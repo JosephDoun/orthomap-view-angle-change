@@ -1,7 +1,8 @@
 import numpy as np
 
-from legend import *
-from logger import logger
+from legend       import *
+from logger       import logger
+from scipy.signal import medfilt
 
 torch = None
 
@@ -24,49 +25,58 @@ class LandCover:
                  res=1) -> None:
         self.res = res
         
-    def __call__(self, lcm: np.ndarray, dsm: np.ndarray, zen: float) -> None:
+    def __call__(self,
+                 shared: np.ndarray,
+                 lcm: np.ndarray,
+                 dsm: np.ndarray,
+                 zen: float) -> None:
         """
         Land-cover view shifting algorithm.
         """
-        
+
         elev = 90 - zen
         tan  = np.tan(elev * np.pi / 180)
         mask = dsm > 0
         idx  = 0
         
-        # logger.debug("hello.")
-
         while mask[idx:].any():
             
             "Jump ahead to point of interest."
             idx    += np.where(mask[idx:])[0][0]
             
             "Get info"
-            (   
-                # Height before.
-                height_,
-                # Current height.
-                height,
-                # Height after.
-                _height
-             )          = dsm[idx-1:idx+2]
-            higher      = np.where(dsm[idx:] > height + self.UNITDIFF)[0]
-            higher      = higher[0] if higher.any() else 0
             
-            if higher == 1:
-                "Assume lidar error and correct (jump)."
-                rel_height = _height - height_
-            else:
-                "Get direct relative height."
-                rel_height = height - height_
+            if idx > 0:
+                heights     = dsm[idx-1:idx+2]
+            
+            elif not idx:
+                heights     = (0, *dsm[idx:idx+2])
+            
+            (
+                height_,
+                height,
+                _height
+            )           = heights
+            
+            dead_end      = np.where(dsm[idx:] > heights[1] + self.UNITDIFF)[0]
+            dead_end      = dead_end[0] if dead_end.any() else 0
+            
+            "Get direct relative height."
+            rel_height = height - height_
             
             rel_height *= rel_height > 0
             cover       = lcm[idx]
             
-            "Calculate dislocation."
+            # End of object.
+            r_end       = min(
+                idx + np.where(lcm[idx:] != cover)[0][0],
+                idx + dead_end
+            )
+            
+            "Calculate displacement."
             d = int(round(rel_height / tan, 0))
             
-            "Re-adjust dislocation."
+            "Re-adjust displacement."
             d = min(
                 
                     # The geometric disclocation.
@@ -74,47 +84,46 @@ class LandCover:
                     
                     # Or until the higher object
                     # if closer.
-                    higher
+                    dead_end
                     
-                ) if higher else d;
+                ) if dead_end else d;
             
-            "Temp: Debugging purposes."
-            d = 10
+            # "Temp: Debugging purposes."
+            # d = 10
             
             if all([
+                
                 # If it's a building.
                 cover == BUILDINGS,
                 
                 # If the relative height is high enough.
                 rel_height > self.UNITDIFF,
                 
-                # If previous pixel was not handled already.
-                not lcm[idx-1] == WALLS,
+                # If previous pixel was not drawn already.
+                not shared[idx-1] == WALLS,
                 
                 # If previous pixel is not out of grid.
-                lcm[idx-1]
+                shared[idx-1]
+                
                 ]):
                 """
-                First occurrence sufficient
-                for wall definition.
-                
-                Assume idx<d> is the start
-                of the remaining roof, for now.
+                <?>
                 """
-                lcm[idx:idx+d] = WALLS
-                cover          = WALLS
+                shared[idx:idx+d]       = WALLS
+                shared[idx+d:d+r_end]   = BUILDINGS
+                cover                   = WALLS
             
-            elif all([
-                # If it's a high vegetation type.
-                cover == BUILDINGS,
-                ]):
+            # elif all([
+            #     # If it's a high vegetation type.
+            #     cover in {EVERG_TREES, DEDIC_TREES}
+            #     ]):
                 
-                """
-                # TODO
+            #     """
+            #     # TODO
                 
-                Do roof projection casting.
-                """
-                lcm[idx:idx+d] = cover;
+            #     Do roof projection casting.
+            #     """
+            #     shared[idx:idx+d] = cover;
             
             # elif all([
                 
@@ -132,7 +141,7 @@ class LandCover:
                 
             "Update mask"
             d    = d or 1
-            idx += d
+            idx  = r_end + d
             
             # logger.error(f"{idx}")
         

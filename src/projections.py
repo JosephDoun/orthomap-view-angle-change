@@ -194,11 +194,11 @@ class Projector:
         """
         for payload in iter(p_queue.get, None):
                             
-            i, dsm, zen, idx, thread_idx = payload
+            i, lcm, dsm, zen, idx, thread_idx = payload
             
-            lcm = shared_memory[thread_idx, i, :]
+            shared = shared_memory[thread_idx, i, :]
         
-            self.__do_line(lcm, dsm, zen)
+            self.__do_line(shared, lcm, dsm, zen)
             
             "Keep count of lines written."
             """
@@ -254,7 +254,7 @@ class Projector:
             
             """
             lcm, dsm = lines
-            p_queue.put((i, dsm, zen, idx, thread_i))
+            p_queue.put((i, lcm, dsm, zen, idx, thread_i))
         
         self.__check_thread_completion(c_queue, idx)
         return
@@ -326,8 +326,12 @@ class Projector:
                             reshape=False)
         return lcm[0]
     
-    def __do_line(self, lcm, dsm, zen):
-        self.__lcmviewer(lcm, dsm, zen)
+    def __do_line(self,
+                  shared: np.ndarray,
+                  lcm: np.ndarray,
+                  dsm: np.ndarray,
+                  zen: float):
+        self.__lcmviewer(shared, lcm, dsm, zen)
         return
     
     def __rotate(self, blocks: Tuple[np.ndarray], angle, cv=0, reshape=True):

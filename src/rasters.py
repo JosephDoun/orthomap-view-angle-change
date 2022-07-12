@@ -595,11 +595,10 @@ class LandCoverCleaner:
         If non-elevated surfaces have elevation
         assume lidar error.
         """
-        dsm[(dsm > 0) &
-            (lcm != BUILDINGS) &
-            (lcm != EVERG_TREES) &
-            (lcm != DEDIC_TREES)]            = 0
+        
+        dsm                                  = medfilt2d(dsm, 5)
         dsm[(dsm < 2)]                       = 0
+        lcm[(dsm > 0) & (lcm != BUILDINGS)]  = BUILDINGS
         lcm[(lcm == BUILDINGS) & (dsm == 0)] = PAVED
                 
         if self.nodata_dsm:
