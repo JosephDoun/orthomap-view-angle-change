@@ -19,7 +19,7 @@ class LandCover:
     
     Meant to define individual roof parts.
     """
-    UNITDIFF = 3
+    UNITDIFF = 0
     
     def __init__(self,
                  res=1) -> None:
@@ -47,30 +47,31 @@ class LandCover:
             "Get info"
             
             if idx > 0:
-                heights     = dsm[idx-1:idx+2]
+                heights   = dsm[idx-1:idx+2]
             
             elif not idx:
-                heights     = (0, *dsm[idx:idx+2])
+                heights   = (0, *dsm[idx:idx+2])
             
             (
                 height_,
                 height,
                 _height
-            )           = heights
+            )             = heights
             
             dead_end      = np.where(dsm[idx:] > heights[1] + self.UNITDIFF)[0]
             dead_end      = dead_end[0] if dead_end.any() else 0
             
             "Get direct relative height."
-            rel_height = height - height_
-            
+            rel_height  = height - height_
             rel_height *= rel_height > 0
             cover       = lcm[idx]
             
             # End of object.
-            r_end       = min(
-                idx + np.where(lcm[idx:] != cover)[0][0],
-                idx + dead_end
+            rel_roof_end    = min(
+                
+                np.where(lcm[idx:] != cover)[0][0],
+                dead_end
+                
             )
             
             "Calculate displacement."
@@ -96,34 +97,39 @@ class LandCover:
                 # If it's a building.
                 cover == BUILDINGS,
                 
-                # If the relative height is high enough.
-                rel_height > self.UNITDIFF,
+                # If there is displacement
+                # there is wall exposure.
+                d,
                 
                 # If previous pixel was not drawn already.
-                not shared[idx-1] == WALLS,
+                # not shared[idx-1] == WALLS,
                 
                 # If previous pixel is not out of grid.
                 shared[idx-1]
                 
                 ]):
+                
                 """
-                <?>
+                This should minimally handle wall exposure.
                 """
-                shared[idx:idx+d]       = WALLS
-                shared[idx+d:d+r_end]   = BUILDINGS
-                cover                   = WALLS
+                
+                shared[idx:idx+d]                = WALLS
+                # ???
+                # shared[idx+d:idx+d+rel_roof_end] = BUILDINGS
+                # cover                      = WALLS
             
-            # elif all([
-            #     # If it's a high vegetation type.
-            #     cover in {EVERG_TREES, DEDIC_TREES}
-            #     ]):
+            elif all([
                 
-            #     """
-            #     # TODO
+                # Displacement is 0 pixels.
+                not d
                 
-            #     Do roof projection casting.
-            #     """
-            #     shared[idx:idx+d] = cover;
+                ]):
+                
+                """
+                This should handle roof displacements.
+                """
+                d = int(round(height / tan, 0))
+                shared[idx:idx+d] = cover;
             
             # elif all([
                 
@@ -141,7 +147,7 @@ class LandCover:
                 
             "Update mask"
             d    = d or 1
-            idx  = r_end + d
+            idx += rel_roof_end or 1
             
             # logger.error(f"{idx}")
         
@@ -157,6 +163,18 @@ class LandCover:
         Handle the extent of 1 contiguous tree.
         """
 
+
+class SimpleLandCover:
+    def __init__(self, res=1) -> None:
+        self.res = 1;
+
+    def __call__(self,
+                 shared: np.ndarray,
+                 lcm: np.ndarray,
+                 dsm: np.ndarray,
+                 zen: float) -> None:
+        pass
+    
 
 class Shadow:
     """
