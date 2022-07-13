@@ -44,8 +44,7 @@ class LandCover:
             "Jump ahead to point of interest."
             idx    += np.where(mask[idx:])[0][0]
             
-            "Get info"
-            
+            "Get neighborhood height info."
             if idx > 0:
                 heights   = dsm[idx-1:idx+2]
             
@@ -61,36 +60,31 @@ class LandCover:
             dead_end      = np.where(dsm[idx:] > heights[1] + self.UNITDIFF)[0]
             dead_end      = dead_end[0] if dead_end.any() else 0
             
-            "Get direct relative height."
+            "Get relative height."
             rel_height  = height - height_
             rel_height *= rel_height > 0
             cover       = lcm[idx]
             
-            # End of object.
-            rel_roof_end    = min(
-                
-                np.where(lcm[idx:] != cover)[0][0],
-                dead_end
-                
-            )
+            dead_end = 0;
             
-            "Calculate displacement."
+            "Calculate relative displacement."
             d = int(round(rel_height / tan, 0))
             
-            "Re-adjust displacement."
-            d = min(
-                
-                    # The geometric disclocation.
-                    d,
-                    
-                    # Or until the higher object
-                    # if closer.
-                    dead_end
-                    
-                ) if dead_end else d;
+            # """
+            # Re-adjust relative displacement.
             
-            # "Temp: Debugging purposes."
-            # d = 10
+            # Shorter pixels cannot overshadow taller pixels.
+            # """
+            # d = min(
+                
+            #         # The calculated relative displacement.
+            #         d,
+                    
+            #         # Or until the closest taller object,
+            #         # if it is closer than the displacement.
+            #         dead_end
+                    
+            #     ) if dead_end else d;
             
             if all([
                 
@@ -101,10 +95,8 @@ class LandCover:
                 # there is wall exposure.
                 d,
                 
-                # If previous pixel was not drawn already.
-                # not shared[idx-1] == WALLS,
-                
                 # If previous pixel is not out of grid.
+                # This index could go out of range TODO.
                 shared[idx-1]
                 
                 ]):
@@ -113,44 +105,37 @@ class LandCover:
                 This should minimally handle wall exposure.
                 """
                 
-                shared[idx:idx+d]                = WALLS
-                # ???
-                # shared[idx+d:idx+d+rel_roof_end] = BUILDINGS
-                # cover                      = WALLS
+                shared[idx:idx+d] = WALLS
             
             elif all([
                 
                 # Displacement is 0 pixels.
-                not d
+                not d,
+                
+                # Over building cover.
+                cover == BUILDINGS,
+                
+                # Not a wall on the delivery array.
+                not shared[idx-1] == WALLS
                 
                 ]):
                 
                 """
                 This should handle roof displacements.
+                
+                If there's not enough rel_height to produce
+                a displacement, then there is no wall exposure.
+                
+                Then:
+                
+                Displace pixel based on absolute height.
                 """
                 d = int(round(height / tan, 0))
                 shared[idx:idx+d] = cover;
-            
-            # elif all([
                 
-            #     # If it's a high vegetation type.
-            #     cover in {EVERG_TREES, DEDIC_TREES, UNCLASS_VEG},
-                                
-            #     ]):
-                
-            #     """
-            #     # TODO
-                
-            #     Do tree projection casting.
-            #     """
-            #     lcm[idx:idx+d] = 0;
-                
-            "Update mask"
-            d    = d or 1
-            idx += rel_roof_end or 1
-            
-            # logger.error(f"{idx}")
-        
+            "Update index."
+            idx += 1
+                    
         # logger.info("Line Done.")
             
     def __do_roof(self):
