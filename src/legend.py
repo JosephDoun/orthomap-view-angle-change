@@ -1,5 +1,6 @@
 
 BUILDINGS   = 1
+NEW_BUILD   = 2
 WALLS       = 11
 PAVED       = 40
 WATER       = 85

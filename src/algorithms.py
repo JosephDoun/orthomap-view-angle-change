@@ -1,3 +1,4 @@
+from pickle import BUILD
 import numpy as np
 
 from legend       import *
@@ -103,9 +104,13 @@ class LandCover:
                 
                 """
                 This should minimally handle wall exposure.
+                
+                Respect overshadowing rooftops written beforehand.
                 """
                 
-                shared[idx:idx+d] = WALLS
+                shared[idx:idx+d][
+                    shared[idx:idx+d] != NEW_BUILD
+                ] = WALLS
             
             elif all([
                 
@@ -116,7 +121,7 @@ class LandCover:
                 cover == BUILDINGS,
                 
                 # Not a wall on the delivery array.
-                not shared[idx-1] == WALLS
+                # not shared[idx-1] == WALLS
                 
                 ]):
                 
@@ -131,11 +136,15 @@ class LandCover:
                 Displace pixel based on absolute height.
                 """
                 d = int(round(height / tan, 0))
-                shared[idx:idx+d] = cover;
+                shared[idx:idx+d][
+                    shared[idx:idx+d] != WALLS
+                ] = NEW_BUILD;
                 
             "Update index."
             idx += 1
-                    
+        
+        "Clean and return values."
+        shared[shared == NEW_BUILD] = BUILDINGS
         # logger.info("Line Done.")
             
     def __do_roof(self):
