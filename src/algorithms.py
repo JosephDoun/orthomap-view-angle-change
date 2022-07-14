@@ -58,34 +58,13 @@ class LandCover:
                 _height
             )             = heights
             
-            dead_end      = np.where(dsm[idx:] > heights[1] + self.UNITDIFF)[0]
-            dead_end      = dead_end[0] if dead_end.any() else 0
-            
             "Get relative height."
             rel_height  = height - height_
             rel_height *= rel_height > 0
             cover       = lcm[idx]
-            
-            dead_end = 0;
-            
+                        
             "Calculate relative displacement."
             d = int(round(rel_height / tan, 0))
-            
-            # """
-            # Re-adjust relative displacement.
-            
-            # Shorter pixels cannot overshadow taller pixels.
-            # """
-            # d = min(
-                
-            #         # The calculated relative displacement.
-            #         d,
-                    
-            #         # Or until the closest taller object,
-            #         # if it is closer than the displacement.
-            #         dead_end
-                    
-            #     ) if dead_end else d;
             
             if all([
                 
@@ -146,28 +125,6 @@ class LandCover:
         "Clean and return values."
         shared[shared == NEW_BUILD] = BUILDINGS
         # logger.info("Line Done.")
-            
-    def __do_roof(self):
-        """
-        Handle the extent of 1 contiguous roof.
-        """
-    
-    def __do_tree(self):
-        """
-        Handle the extent of 1 contiguous tree.
-        """
-
-
-class SimpleLandCover:
-    def __init__(self, res=1) -> None:
-        self.res = 1;
-
-    def __call__(self,
-                 shared: np.ndarray,
-                 lcm: np.ndarray,
-                 dsm: np.ndarray,
-                 zen: float) -> None:
-        pass
     
 
 class Shadow:
