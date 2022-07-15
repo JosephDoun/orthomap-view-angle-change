@@ -354,6 +354,7 @@ class RasterOut(RasterIn):
             self.YSize,
             1,
             # gdal.GDT_Float32
+            options=['COMPRESS=LZW']
         )
         handle.SetGeoTransform(self.geotrans)
         handle.SetProjection(self.handle.GetProjection())
