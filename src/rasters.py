@@ -1,7 +1,6 @@
-from typing import Any, List, Tuple, Union
+from typing import Any, Tuple, Union
 from osgeo import gdal, gdal_array
-from scipy.ndimage import rotate
-from scipy.signal import medfilt2d
+from scipy.ndimage import rotate, median_filter
 from logger import logger
 from legend import *
 
@@ -219,13 +218,6 @@ class RasterOut(RasterIn):
         # or in __handle_overlap()
         """
         
-        # print("Total cols:", self.XSize,
-        #       "Total rows:", self.YSize,
-        #       "tile_size:", tile_size,
-        #       "offx, offy:", (offx, offy),
-        #       "size: ", (xsize, ysize),
-        #       "off_size: ", (self.XSize - offx, self.YSize - offy))
-        
         return offx, offy, xsize, ysize
     
     def __getitem__(self, idx):
@@ -266,35 +258,6 @@ class RasterOut(RasterIn):
                            axes=(-1, -2),
                            order=0).shape[-1]
         return tile_size
-    
-    # def __pad(self, block: np.ndarray, idx, cv=0):
-    #     shape = block.shape
-    #     orig  = self.image[idx].shape
-        
-    #     shape_diff = (-(-(shape[0] - orig[0]) // 2),
-    #                   -(-(shape[1] - orig[1]) // 2)) 
-        
-    #     diff  = (self.overlaps_xy[0] - shape_diff[0],
-    #              self.overlaps_xy[1] - shape_diff[1])
-
-    #     """
-    #     Shape_diff : Cols // 2 (605) gives left padding.
-    #     This has to be equal to self.overlaps_xy[0], for
-    #     offset calculations to work properly.
-        
-    #     Shape_diff : Rows // 2 (-11) gives top padding.
-    #     This has to be equal to self.overlaps_xy[1], for
-    #     offset calculations to work properly.
-    #     """
-    #     # (1013, 1013) (1024, 408) (-11, 605) (223, -393)
-        
-    #     pad   = (
-    #         ((diff[0])*(diff[0] > 0), 0),
-    #         ((diff[1])*(diff[1] > 0), 0)
-    #     )
-        
-    #     return np.pad(block, pad, constant_values=cv)[-(diff[0])*(diff[0] < 0):,
-    #                                                   -(diff[1])*(diff[1] < 0):]
     
     def __calc_padding(self):
         """
@@ -377,7 +340,7 @@ class RasterOut(RasterIn):
          _)   = self.__get_tile(idx)
         
         block = self.__handle_overlap(idx, block)
-        block = medfilt2d(block, kernel_size=3)
+        block = self.__fill_holes(block, 2)
         
         band.WriteArray(
             block,
@@ -392,6 +355,8 @@ class RasterOut(RasterIn):
         """
         BOTTOM LEFT CORNER NOT WRITTEN PROPERLY WITH 1 TRY
         REWRITING FIXES THIS ISSUE. POTENTIAL GDAL BUG.
+        
+        WRITING AND FLUSHING TWICE SEEMS TO BE FIXING IT.
         """
         band.WriteArray(
             block,
@@ -433,7 +398,7 @@ class RasterOut(RasterIn):
         west_block = idx - 1
         
         while not str(west_block)+"_" in self.registered_blocks:
-            # logger.debug(f"{idx} not written to file\r")
+            # Wait for tile dependencies.
             continue
         
         """TESTING SNIPPET"""
@@ -469,7 +434,7 @@ class RasterOut(RasterIn):
         north_block = idx - self.stride
         
         while not str(north_block)+"_" in self.registered_blocks:
-            # logger.debug(f"{idx} not written to file")
+            # Wait for tile dependencies.
             continue
         
         oblock = self.__getitem__(north_block)
@@ -497,8 +462,28 @@ class RasterOut(RasterIn):
         # if idx in s:
         #     plt.imshow(block)
         #     plt.show()
+        
         return block
 
+    def __fill_holes(self, block: np.ndarray, passes: int=2):
+        """
+        Handle hole-filling.
+        """
+        for i in range(passes):
+            block[
+            
+            block == self.nodata
+            
+            ] = median_filter(
+                
+                block,
+                size=(1, 5),
+                origin=(0, 2)
+                
+            )[block == self.nodata]
+        
+        return block
+    
 
 class Resampler:
     """
@@ -597,7 +582,7 @@ class LandCoverCleaner:
         assume lidar error.
         """
         
-        dsm                                  = medfilt2d(dsm, 5)
+        dsm                                  = median_filter(dsm, (5, 5))
         dsm[(dsm < 2)]                       = 0
         lcm[(dsm > 0) & (lcm != BUILDINGS)]  = BUILDINGS
         lcm[(lcm == BUILDINGS) & (dsm == 0)] = PAVED

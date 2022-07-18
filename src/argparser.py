@@ -39,14 +39,14 @@ parser.add_argument(
     "-c", dest='c',
     type=int,
     metavar="<num_cores>",
-    default=4,
+    default=8,
     # nargs=1
 )
 parser.add_argument(
     "-t", dest='threads',
     type=int,
     metavar='<num_threads>',
-    default=3,
+    default=4,
     nargs=1
 )
 

@@ -47,15 +47,14 @@ class LandCover:
             
             "Get neighborhood height info."
             if idx > 0:
-                heights   = dsm[idx-1:idx+2]
+                heights   = dsm[idx-1:idx+1]
             
             elif not idx:
-                heights   = (0, *dsm[idx:idx+2])
+                heights   = (0, *dsm[idx:idx+1])
             
             (
                 height_,
                 height,
-                _height
             )             = heights
             
             "Get relative height."
@@ -100,9 +99,6 @@ class LandCover:
                 
                 # Over building cover.
                 cover == BUILDINGS,
-                
-                # Not a wall on the delivery array.
-                # not shared[idx-1] == WALLS
                 
                 ]):
                 

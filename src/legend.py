@@ -1,4 +1,5 @@
 
+NODATA      = 0
 BUILDINGS   = 1
 NEW_BUILD   = 2
 WALLS       = 11

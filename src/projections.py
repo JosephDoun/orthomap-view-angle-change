@@ -212,7 +212,7 @@ class Projector:
             prog[idx] += 1
             c_queue.put(prog)
 
-        logger.debug("FINISHED")
+        # logger.debug("FINISHED")
         p_queue.put(None)
         return 0
         
@@ -374,7 +374,7 @@ class Projector:
             """
             self.__t_queue.put((idx, *angles, out))
         
-        "Plant sentinel"
+        "Plant sentinel."
         self.__t_queue.put(None)
         
     def main(self):
