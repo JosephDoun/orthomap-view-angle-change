@@ -340,7 +340,7 @@ class RasterOut(RasterIn):
          _)   = self.__get_tile(idx)
         
         block = self.__handle_overlap(idx, block)
-        block = self.__fill_holes(block, 2)
+        block = self.__fill_holes(block, 1)
         
         band.WriteArray(
             block,
@@ -477,8 +477,9 @@ class RasterOut(RasterIn):
             ] = median_filter(
                 
                 block,
-                size=(1, 5),
-                origin=(0, 2)
+                size=(5, 5),
+                origin=(1, 1),
+                mode='reflect'
                 
             )[block == self.nodata]
         
