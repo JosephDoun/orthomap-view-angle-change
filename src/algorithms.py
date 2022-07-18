@@ -88,7 +88,9 @@ class LandCover:
                 """
                 
                 shared[idx:idx+d][
+                    
                     shared[idx:idx+d] != NEW_BUILD
+                    
                 ] = WALLS
             
             elif all([
@@ -115,8 +117,11 @@ class LandCover:
                 Displace pixel based on absolute height.
                 """
                 d = int(round(height / tan, 0))
+                
                 shared[idx:idx+d][
+                    
                     shared[idx:idx+d] != WALLS
+                    
                 ] = NEW_BUILD;
                 
             "Update index."
