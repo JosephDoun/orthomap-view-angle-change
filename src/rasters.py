@@ -470,7 +470,7 @@ class RasterOut(RasterIn):
         """
         Handle hole-filling.
         """
-        for i in range(passes):
+        for i in {1, -1}:
             block[
             
             block == self.nodata
@@ -479,7 +479,7 @@ class RasterOut(RasterIn):
                 
                 block,
                 size=(5, 5),
-                origin=(1, 1),
+                origin=(i, i),
                 mode='reflect'
                 
             )[block == self.nodata]
