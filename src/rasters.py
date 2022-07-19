@@ -6,6 +6,7 @@ from legend import *
 
 import matplotlib.pyplot as plt
 import numpy as np
+import subprocess
 import os
 
 """
@@ -186,7 +187,7 @@ class RasterOut(RasterIn):
 
         self.XSize, self.YSize = self.__get_output_shape()
         self.__out_handle      = self.__get_out_handle(
-            f"Results/{self.name}_{angles[0]}_{angles[1]}.tif"
+            f"Results/{self.name}_{angles[0]}_{angles[1]}_.tif"
             )
         
         self.band = self.__out_handle.GetRasterBand(1)
@@ -306,7 +307,7 @@ class RasterOut(RasterIn):
         )
         return geotrans
     
-    def __get_out_handle(self, rel_path: str):
+    def __get_out_handle(self, rel_path: str) -> gdal.Dataset:
         """
         Return output handle for writing.
         """
@@ -485,6 +486,26 @@ class RasterOut(RasterIn):
         
         return block
     
+    def __cleanup(self):
+        """
+        Crop resulting image according to the initial
+        bounding box coordinates of the input image.
+        """
+        options = gdal.TranslateOptions(
+            projWin=[self.image.geotrans[0],
+                     self.image.geotrans[3],
+                     self.image.geotrans[0] + self.image.geotrans[1],
+                     self.image.geotrans[3] + self.image.geotrans[5]]
+        )
+        gdal.Translate(f"Results/{self.name}.tif",
+                       self.__out_handle.GetDescription(),
+                       options=options)
+    
+    def __del__(self):
+        "# TODO: Check if this works."
+        self.__cleanup()
+        super().__del__()
+        
 
 class Resampler:
     """
