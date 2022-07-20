@@ -341,7 +341,8 @@ class RasterOut(RasterIn):
          _)   = self.__get_tile(idx)
         
         block = self.__handle_overlap(idx, block)
-        block = self.__fill_holes(block, 1)
+        block = self.__fill_holes    (block)
+        block = self.__wall_norm     (block)
         
         band.WriteArray(
             block,
@@ -466,7 +467,7 @@ class RasterOut(RasterIn):
         
         return block
 
-    def __fill_holes(self, block: np.ndarray, passes: int=2):
+    def __fill_holes(self, block: np.ndarray):
         """
         Handle hole-filling.
         """
@@ -486,6 +487,22 @@ class RasterOut(RasterIn):
         
         return block
     
+    def __wall_norm(self, block: np.ndarray):
+        """
+        Remove building pixel discrepancies.
+        """
+        block[
+        
+            block == BUILDINGS
+            
+        ] = median_filter(
+            
+            block,
+            (3, 3)
+            
+        )[block == BUILDINGS]
+        return block
+        
     def __cleanup(self):
         """
         Crop resulting image according to the initial
@@ -494,17 +511,22 @@ class RasterOut(RasterIn):
         options = gdal.TranslateOptions(
             projWin=[self.image.geotrans[0],
                      self.image.geotrans[3],
-                     self.image.geotrans[0] + self.image.geotrans[1],
-                     self.image.geotrans[3] + self.image.geotrans[5]]
+                     self.image.geotrans[0] + self.image.XSize * self.image.geotrans[1],
+                     self.image.geotrans[3] + self.image.YSize * self.image.geotrans[5]]
         )
-        gdal.Translate(f"Results/{self.name}.tif",
-                       self.__out_handle.GetDescription(),
-                       options=options)
+        gdal.Translate(
+            f"Results/{self.name}_{self.angles[0]}_{self.angles[1]}.tif",
+            self.__out_handle.GetDescription(),
+            options=options
+            )
+        os.remove(self.__out_handle.GetDescription())
+    
+    def __rescale(self):
+        options = gdal.WarpOptions()
     
     def __del__(self):
         "# TODO: Check if this works."
         self.__cleanup()
-        super().__del__()
         
 
 class Resampler:
