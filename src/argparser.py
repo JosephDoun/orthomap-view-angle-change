@@ -55,9 +55,23 @@ parser.add_argument(
     dest='tr',
     help="""
     Target resolution for X and Y in meters.
+    Defaults to 100 meters.
     """,
     type=float,
     default=100.0
+)
+parser.add_argument(
+    "--nogo",
+    dest="nogo",
+    action="store_true",
+    help="""
+    Do not produce the final rescaled product.
+    
+    Use switch if there are memory issues. Constructing the final product
+    requires the entire map to fit in memory.
+    
+    This is a switch to deactivate this process.
+    """
 )
 
 args = parser.parse_args(argv[1:])

@@ -528,7 +528,9 @@ class RasterOut(RasterIn):
     def __del__(self):
         "# TODO: Check if this works."
         name = self.__cleanup()
-        ProductFormatter(name)
+        
+        if not args.nogo:
+            ProductFormatter(name)
         
 
 class ProductFormatter:
