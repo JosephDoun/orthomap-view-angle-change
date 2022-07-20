@@ -562,6 +562,9 @@ class ProductFormatter:
     def __populate_product(self):
         for i, v in enumerate(np.unique(self.__array)):
             if v == 0 :
+                """
+                Skip nodata.
+                """
                 assert i == 0
                 continue
             
