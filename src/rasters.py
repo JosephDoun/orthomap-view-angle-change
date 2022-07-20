@@ -403,32 +403,25 @@ class RasterOut(RasterIn):
             # Wait for tile dependencies.
             continue
         
-        """TESTING SNIPPET"""
         oblock = self.__getitem__(west_block)
-        
-        # s = {433 - 24 * i for i in range(2)}
-        # if idx in s:
-        #     plt.imshow(oblock)
-        #     plt.show()
-        #     plt.imshow(block)
-        #     plt.show()
                 
         overlap_1 = oblock[
             :, -2*overlap:
         ]
         overlap_2 = block[:, :2*overlap]
-                
-        # if idx in s:
-        #     plt.imshow(overlap_1);
-        #     plt.show();
-        #     plt.imshow(overlap_2);
-        #     plt.show()
-            
-        overlap_2[overlap_2 == self.nodata] = overlap_1[overlap_2 == self.nodata]
         
-        # if idx in s:
-        #     plt.imshow(block)
-        #     plt.show()
+        """
+        #
+        # TODO (For David)
+        #
+        # Actual overlapping has to be more complex.
+        # Ensure that valuable info are kept from both sides.
+        # 
+        # Minor BUG
+        #
+        """
+        
+        overlap_2[overlap_2 == self.nodata] = overlap_1[overlap_2 == self.nodata]
         
         return block
     
