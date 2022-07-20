@@ -49,5 +49,15 @@ parser.add_argument(
     default=4,
     nargs=1
 )
+parser.add_argument(
+    "--target-res",
+    "-tr",
+    dest='tr',
+    help="""
+    Target resolution for X and Y in meters.
+    """,
+    type=float,
+    default=100.0
+)
 
 args = parser.parse_args(argv[1:])

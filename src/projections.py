@@ -369,7 +369,7 @@ class Projector:
             Perhaps the RasterOut object
             should be fed through the Queue.
             
-            # TODO
+            # TODO check.
             # DONE.
             """
             self.__t_queue.put((idx, *angles, out))

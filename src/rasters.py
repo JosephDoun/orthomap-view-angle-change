@@ -1,15 +1,16 @@
-from typing import Any, Tuple, Union
-from osgeo import gdal, gdal_array
+from typing        import Any, Tuple, Union
+from osgeo         import gdal, gdal_array
 from scipy.ndimage import rotate, median_filter
-from logger import logger
-from legend import *
+from argparser     import args
+from logger        import logger
+from legend        import *
 
 import matplotlib.pyplot as plt
-import numpy as np
-import subprocess
+import numpy             as np
 import os
 
 """
+
 # BUG TODO FIX
 
 # RasterOut class:
@@ -23,7 +24,13 @@ import os
 
 """
 
+
+MAPFOLDER  = "Results"
+PRODFOLDER = "Products"
+
+
 class RasterIn:
+    
     """
     Class to be reading large geo-images
     tile by tile through subscription.
@@ -100,19 +107,6 @@ class RasterIn:
         
         array   = gdal_array.LoadFile(self.path, offx, offy, xsize, ysize)
         array   = self.__pad_corners(array)
-        
-        if self._Resampler:
-            """
-            Resize array according to desired resolution.
-            
-            #
-            # Resampler Class
-            # NOT IMPLEMENTED
-            # TODO 
-            # 
-
-            """
-            array = self._Resampler(array)
             
         return array 
     
@@ -131,6 +125,9 @@ class RasterIn:
                           )
     
     def SetResampler(self, resampler):
+        """
+        NOT IMPLEMENTED/APPLICABLE.
+        """
         self._Resampler = resampler
         self.geotrans   = (
             self.geotrans[0],
@@ -142,6 +139,9 @@ class RasterIn:
         )
     
     def show(self, idx):
+        """
+        Visualize corresponding tile/block.
+        """
         array   = self.__getitem__(idx)
         fig, ax = plt.subplots(1, 1, figsize=(8, 4))
 
@@ -187,7 +187,7 @@ class RasterOut(RasterIn):
 
         self.XSize, self.YSize = self.__get_output_shape()
         self.__out_handle      = self.__get_out_handle(
-            f"Results/{self.name}_{angles[0]}_{angles[1]}_.tif"
+            f"{MAPFOLDER}/{self.name}_{angles[0]}_{angles[1]}.tif"
             )
         
         self.band = self.__out_handle.GetRasterBand(1)
@@ -507,102 +507,105 @@ class RasterOut(RasterIn):
         """
         Crop resulting image according to the initial
         bounding box coordinates of the input image.
-        """
+        """        
         options = gdal.TranslateOptions(
             projWin=[self.image.geotrans[0],
                      self.image.geotrans[3],
                      self.image.geotrans[0] + self.image.XSize * self.image.geotrans[1],
                      self.image.geotrans[3] + self.image.YSize * self.image.geotrans[5]]
         )
+        newname = f"{self.name}_{self.angles[0]}_{self.angles[1]}_.tif"
+        
         gdal.Translate(
-            f"Results/{self.name}_{self.angles[0]}_{self.angles[1]}.tif",
+            f"{MAPFOLDER}/{newname}",
             self.__out_handle.GetDescription(),
             options=options
             )
+        
         os.remove(self.__out_handle.GetDescription())
-    
-    def __rescale(self):
-        options = gdal.WarpOptions()
-    
+        return newname
+        
     def __del__(self):
         "# TODO: Check if this works."
-        self.__cleanup()
+        name = self.__cleanup()
+        ProductFormatter(name)
         
 
-class Resampler:
-    """
-    
-    # TODO
-    # Build class for arbitrary resolution handling.
-    # This should probably be instantiated
-    # inside the RasterIn instance of interest.
-    
-    # Perhaps it would even make sense to be
-    # implemented as a decorator. 
+class ProductFormatter:
     
     """
-    def __init__(self,
-                 image: RasterIn,
-                 res: float) -> None:
-        
-        self.image     = image
-        self.res_in    = image.res[0]
-        self.res_out   = res
-        self.ratio     = self.res_out / self.res_in
-        self.tile_size = (image.tile_size * self.ratio,) * 2
-        
-        assert not self.tile_size[0] % 1, """
-        
-        Remainder in resampling division must be 0.
-        
-        Choose another target resolution that produces integer dimensions.
-        
-        """
-        
-        process = "down" if self.res_in < self.res_out else "up"
-
-        self.__process = {
-            "up"  : self.__upsample,
-            "down": self.__downsample
-        }[process]
-        
-    def __upsample(self, block: np.ndarray):
-        pass
-    
-    def __downsample(self, block: np.ndarray):
-        pass
-    
-    def __call__(self, block: np.ndarray, **kwds: Any) -> Any:
-        return self.__process(block)
-
-
-class AlignmentHandler:
+    Class designed to produce
+    the final product based on
+    RasterOut instance.
     """
-    Abstracted just incase.
-    It will probably not be used.
     
-    # TODO -- MAYBE
-    """
-    def __init__(self) -> None:
-        pass
+    os.makedirs(PRODFOLDER, exist_ok=True)
     
-    def __compare(self,
-                  lcm: RasterIn,
-                  dsm: RasterIn):
-        pass
+    def __init__(self, name: str) -> None:
+        self.__name  : str = name
+        self.__source: str = f"{MAPFOLDER}/{name}"
+        self.__destin: str = f"{PRODFOLDER}/{name}"
+        
+        self.__handle: gdal.Dataset = gdal.Open(self.__source)
+        self.__array : np.ndarray   = gdal_array.LoadFile(self.__source)
+        self.__out_handle           = self.__get_product_handle()
+        
+        self.__populate_product()
+        
+    def __get_product_handle(self) -> gdal.Dataset:
+        driver: gdal.Driver = gdal.GetDriverByName("GTiff")
+        
+        handle = driver.Create(
+            self.__destin,
+            self.__handle.RasterXSize,
+            self.__handle.RasterYSize,
+            len(np.unique(self.__array)) - 1,
+            gdal.GDT_Float32,
+            options=['COMPRESS=LZW']
+        )
+        
+        handle.SetProjection  (self.__handle.GetProjection(  ))
+        handle.SetGeoTransform(self.__handle.GetGeoTransform())
+        handle.FlushCache     (                               )
+        
+        return handle
     
-    def __call__(self,
-                 lcm: RasterIn,
-                 dsm: RasterIn,
-                 **kwds: Any) -> Any:
-        pass
+    def __populate_product(self):
+        for i, v in enumerate(np.unique(self.__array)):
+            if v == 0 :
+                assert i == 0
+                continue
+            
+            band: gdal.Band = self.__out_handle.GetRasterBand(i)
+            band.SetDescription(LEGEND[v])
+            band.WriteArray(
+                (self.__array == v).astype(np.float32),
+                0,
+                0
+            )
+            
+        self.__out_handle.FlushCache()
+    
+    def __rescale(self):
+        options = gdal.WarpOptions(xRes=args.tr,
+                                   yRes=args.tr,
+                                   resampleAlg="average")
+        gdal.Warp(self.__destin.replace("_", ""),
+                  self.__destin,
+                  options=options)
+        os.remove(self.__destin)
+    
+    def __del__(self):
+        self.__rescale()
     
 
 class LandCoverCleaner:
+    
     """
     Class to discard uncertainties and disagreements.
     Assumes identical metadata between pairs.
     """
+    
     def __init__(self,
                  lcm: RasterIn,
                  dsm: RasterIn) -> None:
