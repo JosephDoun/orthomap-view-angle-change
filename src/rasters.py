@@ -342,7 +342,7 @@ class RasterOut(RasterIn):
         
         block = self.__handle_overlap(idx, block)
         block = self.__fill_holes    (block)
-        block = self.__wall_norm     (block)
+        block = self.__wall_cleaning     (block)
         
         band.WriteArray(
             block,
@@ -440,30 +440,24 @@ class RasterOut(RasterIn):
             continue
         
         oblock = self.__getitem__(north_block)
-
-        # s = {432 - 24 * i for i in range(2)}        
-        # if idx in s:
-        #     plt.imshow(oblock)
-        #     plt.show()
-        #     plt.imshow(block)
-        #     plt.show()
         
         overlap_1 = oblock[
             -2*overlap:, :
         ]
         overlap_2 = block[:2*overlap, :]
+
+        """
+        #
+        # TODO (For David)
+        #
+        # Actual overlapping has to be more complex.
+        # Ensure that valuable info are kept from both sides.
+        # 
+        # Minor BUG
+        #
+        """
         
-        # if idx in s:
-        #     plt.imshow(overlap_1);
-        #     plt.show();
-        #     plt.imshow(overlap_2);
-        #     plt.show()
-            
         overlap_2[overlap_2 == self.nodata] = overlap_1[overlap_2 == self.nodata]
-        
-        # if idx in s:
-        #     plt.imshow(block)
-        #     plt.show()
         
         return block
 
@@ -487,7 +481,7 @@ class RasterOut(RasterIn):
         
         return block
     
-    def __wall_norm(self, block: np.ndarray):
+    def __wall_cleaning(self, block: np.ndarray):
         """
         Remove building pixel discrepancies.
         """
