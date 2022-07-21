@@ -508,7 +508,7 @@ class RasterOut(RasterIn):
                      self.image.geotrans[3],
                      self.image.geotrans[0] + self.image.XSize * self.image.geotrans[1],
                      self.image.geotrans[3] + self.image.YSize * self.image.geotrans[5]],
-            creationOptions=["COMPRESS=LZW", "BIGTIFF=YES"],
+            creationOptions=["COMPRESS=LZW", "BIGTIFF=YES"]
             
         )
         
@@ -601,7 +601,8 @@ class ProductFormatter:
                                    yRes=args.tr,
                                    resampleAlg="average",
                                    creationOptions=["COMPRESS=LZW",
-                                                    "BIGTIFF=YES"])
+                                                    "BIGTIFF=YES"],
+                                   multithread=True)
         gdal.Warp(self.__destin.replace("_", ""),
                   self.__destin,
                   options=options)
