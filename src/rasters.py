@@ -317,8 +317,12 @@ class RasterOut(RasterIn):
             self.XSize,
             self.YSize,
             1,
+            # Datatype defaults to Byte.
             # gdal.GDT_Float32
-            options=['COMPRESS=LZW']
+            # Compressing the canvas creates problems
+            # With reading/retrieving during
+            # handling of overlaps. Don't use.
+            options=['BIGTIFF=YES']
         )
         handle.SetGeoTransform(self.geotrans)
         handle.SetProjection(self.handle.GetProjection())
@@ -329,6 +333,7 @@ class RasterOut(RasterIn):
         return gdal.GetDriverByName("GTiff")
     
     def write(self, idx, block: np.ndarray):
+        
         """
         Write to file block by block.
         """
@@ -342,7 +347,7 @@ class RasterOut(RasterIn):
         
         block = self.__handle_overlap(idx, block)
         block = self.__fill_holes    (block)
-        block = self.__wall_cleaning     (block)
+        block = self.__wall_cleaning (block)
         
         band.WriteArray(
             block,
@@ -494,29 +499,42 @@ class RasterOut(RasterIn):
         """
         Crop resulting image according to the initial
         bounding box coordinates of the input image.
-        """        
+        """
+        
+        # Declare the cropping bounding box.
         options = gdal.TranslateOptions(
+            
             projWin=[self.image.geotrans[0],
                      self.image.geotrans[3],
                      self.image.geotrans[0] + self.image.XSize * self.image.geotrans[1],
-                     self.image.geotrans[3] + self.image.YSize * self.image.geotrans[5]]
+                     self.image.geotrans[3] + self.image.YSize * self.image.geotrans[5]],
+            creationOptions=["COMPRESS=LZW", "BIGTIFF=YES"],
+            
         )
+        
+        # New name for the cropped image. Can't overwrite input.
         newname = f"{self.name}_{self.angles[0]}_{self.angles[1]}_.tif"
         
+        # Run the cropping process.
         gdal.Translate(
             f"{MAPFOLDER}/{newname}",
             self.__out_handle.GetDescription(),
             options=options
             )
         
+        # Remove original padded image.
         os.remove(self.__out_handle.GetDescription())
+        
+        # Return the newname for further processes.
         return newname
         
     def __del__(self):
         "# TODO: Check if this works."
+        print("Cropping high resolution map... Please wait.")
         name = self.__cleanup()
         
         if not args.nogo:
+            print("Putting together the final product... Please wait.")
             ProductFormatter(name)
         
 
@@ -550,7 +568,7 @@ class ProductFormatter:
             self.__handle.RasterYSize,
             len(np.unique(self.__array)) - 1,
             gdal.GDT_Float32,
-            options=['COMPRESS=LZW']
+            options=['COMPRESS=LZW', "BIGTIFF=YES"]
         )
         
         handle.SetProjection  (self.__handle.GetProjection(  ))
@@ -581,7 +599,9 @@ class ProductFormatter:
     def __rescale(self):
         options = gdal.WarpOptions(xRes=args.tr,
                                    yRes=args.tr,
-                                   resampleAlg="average")
+                                   resampleAlg="average",
+                                   creationOptions=["COMPRESS=LZW",
+                                                    "BIGTIFF=YES"])
         gdal.Warp(self.__destin.replace("_", ""),
                   self.__destin,
                   options=options)
@@ -617,16 +637,19 @@ class LandCoverCleaner:
         Get the intersection between LCM & DSM.
         
         REVERSELY:
-        If non-elevated surfaces have elevation
+        If thematically non-elevated surfaces have elevation
         assume lidar error.
         """
         
         dsm                                  = median_filter(dsm, (5, 5))
-        dsm[(dsm < 2)]                       = 0
-        lcm[(dsm > 0) & (lcm != BUILDINGS)]  = BUILDINGS
+        dsm[            dsm < 2            ] = 0
+        lcm[(dsm > 0) & (lcm != BUILDINGS) ] = BUILDINGS
         lcm[(lcm == BUILDINGS) & (dsm == 0)] = PAVED
                 
         if self.nodata_dsm:
+            """
+            If DSM contains nodata, discard areas.
+            """
             lcm[dsm == self.nodata_dsm] = 0
             dsm[dsm == self.nodata_dsm] = 0
         
