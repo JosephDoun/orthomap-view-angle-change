@@ -23,17 +23,38 @@ parser.add_argument(
     required=True
 )
 
-def pair(arg):
+def spair(arg):
     return [int(x) for x in arg.split(',')];
 
+def rpair(arg):
+    return [str(x) for x in arg.split(',')]
+
 parser.add_argument(
-    "-a",
-    help="Sequence of pairs of angles to produce.",
+    "--scalar-angles", "-sa",
+    help="Sequence of pairs of scalar angles for processing.",
     dest='angles',
-    metavar="<azimuth,zenith>",
-    type=pair,
-    required=True,
-    nargs="+"
+    metavar="azimuth,zenith",
+    type=spair,
+    required=False,
+    nargs="+",
+    default=[]
+)
+parser.add_argument(
+    "--raster-angles", "-ra",
+    help="""
+    Sequence of pairs of angle rasters for processing.
+    
+    Rasters have to have the same dimensions/resolution
+    as the other inputs. (1m spatial resolution)
+    
+    NOT IMPLEMENTED/TESTED AT THE MOMENT. (Hi David)
+    """,
+    dest="rangles",
+    metavar="azim_band_path,zen_band_path",
+    type=rpair,
+    nargs='+',
+    default=[],
+    required=False
 )
 parser.add_argument(
     "-c", dest='c',
@@ -75,3 +96,13 @@ parser.add_argument(
 )
 
 args = parser.parse_args(argv[1:])
+
+if not args.angles and not args.rangles:
+    raise AssertionError("""
+                         
+        Error: One of the following arguments is required:
+        
+        --scalar-angles/-sa, --raster-angles/-ra
+        
+        """
+    )

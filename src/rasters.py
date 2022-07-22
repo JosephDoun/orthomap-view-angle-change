@@ -3,6 +3,7 @@ from osgeo         import gdal, gdal_array
 from scipy.ndimage import rotate, median_filter
 from argparser     import args
 from logger        import logger
+from tqdm          import tqdm
 from legend        import *
 
 import matplotlib.pyplot as plt
@@ -462,6 +463,8 @@ class RasterOut(RasterIn):
     def __fill_holes(self, block: np.ndarray):
         """
         Handle hole-filling.
+        
+        This attends affine-transformation consequences.
         """
         for i in {1, -1}:
             block[
@@ -530,8 +533,10 @@ class RasterOut(RasterIn):
         
     def __del__(self):
         "# TODO: Check if this works."
-        print("Cropping high resolution map... Please wait.")
+        
+        print("\nCropping high resolution map... Please wait.", end=" ")
         name = self.__cleanup()
+        print(f"OK! High-resolution map ready in {MAPFOLDER} directory.")
         
         if not args.nogo:
             print("Putting together the final product... Please wait.")
@@ -566,9 +571,9 @@ class ProductFormatter:
             self.__destin,
             self.__handle.RasterXSize,
             self.__handle.RasterYSize,
-            len(np.unique(self.__array)) - 1,
+            len(np.unique(self.__array)),
             gdal.GDT_Float32,
-            options=['COMPRESS=LZW', "BIGTIFF=YES"]
+            options=["BIGTIFF=YES"]
         )
         
         handle.SetProjection  (self.__handle.GetProjection(  ))
@@ -578,35 +583,43 @@ class ProductFormatter:
         return handle
     
     def __populate_product(self):
+        p = tqdm(range(len(np.unique(self.__array))),
+                 desc="Expanding LCM to Mask per label...",
+                 unit="mask")
         for i, v in enumerate(np.unique(self.__array)):
-            if v == 0 :
-                """
-                Skip nodata.
-                """
-                assert i == 0
-                continue
             
-            band: gdal.Band = self.__out_handle.GetRasterBand(i)
+            """
+            Make and populate a raster band for every unique value
+            in the Land Cover Map. Including the nodata value.
+
+            Prepare grounds to use Warp for rescaling.
+            """
+            
+            band: gdal.Band = self.__out_handle.GetRasterBand(i+1)
             band.SetDescription(LEGEND[v])
             band.WriteArray(
                 (self.__array == v).astype(np.float32),
                 0,
                 0
             )
+            p.update()
             
         self.__out_handle.FlushCache()
+        self.__out_handle = None
     
     def __rescale(self):
         options = gdal.WarpOptions(xRes=args.tr,
                                    yRes=args.tr,
                                    resampleAlg="average",
-                                   creationOptions=["COMPRESS=LZW",
-                                                    "BIGTIFF=YES"],
-                                   multithread=True)
+                                   creationOptions=["COMPRESS=LZW"],
+                                   multithread=True,
+                                   warpMemoryLimit=None)
+        print("\nExecuting gdalwarp...", end=" ")
         gdal.Warp(self.__destin.replace("_", ""),
                   self.__destin,
                   options=options)
         os.remove(self.__destin)
+        print("OK!")
     
     def __del__(self):
         self.__rescale()
@@ -641,17 +654,21 @@ class LandCoverCleaner:
         If thematically non-elevated surfaces have elevation
         assume lidar error.
         """
-        
+        if self.nodata_dsm:
+            """
+            If DSM contains nodata, discard LC areas.
+            """
+            lcm[dsm == self.nodata_dsm] = 0
+            
         dsm                                  = median_filter(dsm, (5, 5))
         dsm[            dsm < 2            ] = 0
         lcm[(dsm > 0) & (lcm != BUILDINGS) ] = BUILDINGS
         lcm[(lcm == BUILDINGS) & (dsm == 0)] = PAVED
-                
+
         if self.nodata_dsm:
             """
-            If DSM contains nodata, discard areas.
+            If DSM contains nodata, discard LC areas.
             """
-            lcm[dsm == self.nodata_dsm] = 0
             dsm[dsm == self.nodata_dsm] = 0
         
         if (dsm < 0).any():
