@@ -583,9 +583,11 @@ class ProductFormatter:
         return handle
     
     def __populate_product(self):
+        
         p = tqdm(range(len(np.unique(self.__array))),
                  desc="Expanding LCM to Mask per label...",
                  unit="mask")
+        
         for i, v in enumerate(np.unique(self.__array)):
             
             """
@@ -614,11 +616,14 @@ class ProductFormatter:
                                    creationOptions=["COMPRESS=LZW"],
                                    multithread=True,
                                    warpMemoryLimit=None)
+        
         print("\nExecuting gdalwarp...", end=" ")
+        
         gdal.Warp(self.__destin.replace("_", ""),
                   self.__destin,
                   options=options)
         os.remove(self.__destin)
+        
         print("OK!")
     
     def __del__(self):
