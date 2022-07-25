@@ -24,7 +24,7 @@ parser.add_argument(
 )
 
 def spair(arg):
-    return [int(x) for x in arg.split(',')];
+    return [float(x) for x in arg.split(',')];
 
 def rpair(arg):
     return [str(x) for x in arg.split(',')]
