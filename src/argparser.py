@@ -7,7 +7,7 @@ parser.add_argument(
     "--tile-size", "-ts",
     dest='ts',
     type=int,
-    default=1024,
+    default=1000,
     help="Size of tiles to process."
 )
 parser.add_argument(
