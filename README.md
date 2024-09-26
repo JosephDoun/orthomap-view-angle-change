@@ -1,2 +1,2 @@
-# LCPshifter
-Shifts land cover orthomap according to theoretical satellite viewing angles, estimating building wall exposure to sensor.
+# Orthomap View Angle
+Shifts land cover orthomap viewing angle, estimating building wall exposure to sensing angle.
