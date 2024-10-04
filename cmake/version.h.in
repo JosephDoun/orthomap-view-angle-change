@@ -1,0 +1,5 @@
+// Propagate version from cmake.
+
+# define Omvac_VERSION_MAJOR @omvac_VERSION_MAJOR@
+# define Omvac_VERSION_MINOR @Omvac_VERSION_MINOR@
+
