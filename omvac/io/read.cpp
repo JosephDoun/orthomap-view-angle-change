@@ -1,12 +1,16 @@
 #include "read.h"
 
 
-data::DatasetReader::DatasetReader() {}
-data::DatasetReader::~DatasetReader() {}
+using namespace io;
 
-GDALDataset * data::DatasetReader::read(const char *p)
+
+DatasetReader::DatasetReader() {}
+DatasetReader::~DatasetReader() {}
+
+GDALDataset * DatasetReader::read(const char *p)
 {
 	GDALDataset * ds = (GDALDataset *) GDALOpen(p, GA_ReadOnly);
 	return ds;
 }
+
 

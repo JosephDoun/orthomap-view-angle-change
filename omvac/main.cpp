@@ -8,7 +8,8 @@ int main(int argc, const char * argv[])
 	// Parse argv.
 	
 	// Instantiate reader.
-	data::DatasetReader gdal_reader;
+	io::DatasetReader gdal_reader;
+	
 	return 0;
 }
 

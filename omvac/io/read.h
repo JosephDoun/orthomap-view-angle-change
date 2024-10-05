@@ -3,7 +3,7 @@
 # include <gdal/gdal_priv.h>
 
 
-namespace data {
+namespace io {
 	
 	class DatasetReader {
 		
