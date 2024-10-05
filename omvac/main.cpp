@@ -1,8 +1,14 @@
 #include "version.h"
+#include "io/read.h"
 
 
-int main(int argc, char * argv[])
+// Entry point.
+int main(int argc, const char * argv[])
 {
+	// Parse argv.
+	
+	// Instantiate reader.
+	data::DatasetReader gdal_reader;
 	return 0;
 }
 
