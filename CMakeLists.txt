@@ -22,6 +22,15 @@ target_include_directories(omvac
 # additional sources for target.
 target_sources(omvac PUBLIC ${ADDITIONAL_SOURCES})
 
+find_library(GDAL gdal)
+find_library(OBLAS openblaso)
+find_path(GDAL_HEADERS gdal_priv.h)
+
+target_link_libraries(omvac ${GDAL})
+
+message("${OBLAS}")
+message("${CMAKE_SYSTEM_INCLUDE_PATH}")
+message("${GDAL_HEADERS}")
 
 install(TARGETS omvac DESTINATION bin)
 
