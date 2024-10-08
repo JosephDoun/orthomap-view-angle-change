@@ -11,7 +11,10 @@ int main(int argc, const char * argv[])
 	// Instantiate reader.
 	io::DatasetReader gdal_reader;
 	
-	printf("%d.%d\n", OMVAC_VERSION_MAJOR, OMVAC_VERSION_MINOR);
+	printf("%d.%d.%d\n",
+			OMVAC_VERSION_MAJOR,
+			OMVAC_VERSION_MINOR,
+			OMVAC_VERSION_PATCH);
 	return 0;
 }
 
