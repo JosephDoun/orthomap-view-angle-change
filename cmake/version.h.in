@@ -1,6 +1,6 @@
 // Propagate version from cmake.
 
-# define OMVAC_VERSION_MAJOR @omvac_VERSION_MAJOR@
-# define OMVAC_VERSION_MINOR @omvac_VERSION_MINOR@
-# define OMVAC_VERSION_PATCH @omvac_VERSION_PATCH@
+# define __MAPPOV_VERSION_MAJOR @mappov_VERSION_MAJOR@
+# define __MAPPOV_VERSION_MINOR @mappov_VERSION_MINOR@
+# define __MAPPOV_VERSION_PATCH @mappov_VERSION_PATCH@
 
