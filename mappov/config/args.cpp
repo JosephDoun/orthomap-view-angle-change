@@ -47,5 +47,5 @@ void Args::help()
 void Args::abort()
 {
     help();
-    exit(-1);
+    throw std::invalid_argument("Invalid arguments.");
 }
