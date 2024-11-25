@@ -15,7 +15,7 @@ find_library(GDAL gdal)
 target_link_libraries(mappov
 	${GDAL}
 	filesystem
-	# memory
+	memory
 	# geometry
 	# errors
 	config
