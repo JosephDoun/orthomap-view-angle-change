@@ -8,11 +8,15 @@
 class Memory
 {
 	public:
-	Memory(size_t size, size_t count);
+	Memory(size_t, size_t);
 	~Memory();
 
+	void * Allocate();
+	void   Deallocate(void*);
+
 	private:
-	std::vector<char *> data;
+	std::vector<char *> mem_blocks;
+	std::vector<char *> free_blocks;
 };
 
 #endif
