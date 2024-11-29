@@ -8,7 +8,7 @@
 class Memory
 {
 	public:
-	Memory(size_t, size_t);
+	Memory(size_t b_size /*block-size*/, size_t b_count /*number of blocks*/);
 	~Memory();
 
 	void * Allocate();
