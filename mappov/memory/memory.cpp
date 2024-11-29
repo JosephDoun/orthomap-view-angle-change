@@ -3,10 +3,9 @@
 
 Memory::Memory(size_t b_size /*Block-size*/, size_t b_count /*Block-count*/)
 {
-    /* FUTURE TODO:
-    Refactor to use a continuous block of memory
-    in the future: Will require overriding new and delete
-    operators.
+    /* 
+    Keep track of total distributed blocks and free blocks
+    separately.
     */
     for (int i = 0; i < b_count; i++) 
     {
@@ -40,13 +39,14 @@ void Memory::Deallocate(void * block)
 }
 
 
+// Draft struct for memimpl2.
 struct MemBlock
 {
     char * data;
 };
 
 
-/* Experimental // Not implemented */
+/* Experimental // Draft version */
 class MemImplementation2
 {
     private:
