@@ -1,6 +1,7 @@
 #include "version.h"
 #include "filesystem/read.h"
 #include "config/args.h"
+#include "memory/memory.h"
 
 #include <cstdio>
 
@@ -10,6 +11,7 @@ int __main(int argc, const char * argv[])
 {	
 	
 	Args cliargs{argc, argv};
+	Memory mempool{2048, 16};
 
 	// Instantiate reader.
 	DatasetReader reader;
