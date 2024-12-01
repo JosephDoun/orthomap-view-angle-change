@@ -2,20 +2,27 @@
 #include <gdal/gdal_priv.h>
 
 
-Dataset::Dataset(uint16_t tile_size) : t_size{tile_size} {};
-
 // Read dataset at path and handle errors.
-Dataset * ReadData(std::string p)
+Dataset * Dataset::ReadDataset(std::string p)
 {
 	auto load = GDALOpen(p.c_str(), GA_ReadOnly);
-	if (load == NULL) throw std::invalid_argument(p + " is invalid.");
+	if (load == NULL) throw std::invalid_argument(p.append(" is invalid."));
 	return (Dataset *) load;
 }
 
-struct t_coords { uint16_t x; uint16_t y; };
+
+Dataset * Dataset::SetTSize(uint16_t t_size)
+{
+	t_size = t_size;
+	return this;
+}
+
+
+/* Datatype containing x, y offset coordinates. */
+typedef struct _t_coords { uint16_t x; uint16_t y; } t_coords;
 
 /* Return the pxl coordinates of a tile. */
-t_coords & Dataset::tile_coords(uint16_t index)
+t_coords Dataset::tile_coords(uint16_t index)
 {
 	t_coords offsets {};
 
