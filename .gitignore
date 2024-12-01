@@ -1,4 +1,6 @@
-data
-build
+data/
+build/
+
+!mappov/data
 
 .vscode
