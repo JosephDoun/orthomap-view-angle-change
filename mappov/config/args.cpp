@@ -58,7 +58,7 @@ Args::Args(int argc, const char * argv[])
     }
 
     SMESSAGE(lcmap, "Please provide a path to a land cover map.\n");
-    SMESSAGE(dem, "Please provide a path to a digital surface model.\n");
+    SMESSAGE(dsm, "Please provide a path to a digital surface model.\n");
     FMESSAGE(zenith, "Please provide target zenith angle.\n");
     FMESSAGE(azimuth, "Please provide target azimuth angle.\n");
 };

@@ -24,7 +24,7 @@ class Args
     Args(int argc, const char * argv[]);
 
     const std::string &lcmap = sargs["lcmap"];
-    const std::string &dem = sargs["dsm"];
+    const std::string &dsm = sargs["dsm"];
     const float &zenith = fargs["z"];
     const float &azimuth = fargs["a"];
 };
