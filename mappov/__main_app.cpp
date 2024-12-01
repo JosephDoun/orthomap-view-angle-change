@@ -6,16 +6,23 @@
 #include <cstdio>
 
 
-// Application entry point.
+/* Application entry point. */
 int __main(int argc, const char * argv[])
-{	
-	
+{
+	/* Register available drivers. */
+	GDALAllRegister();
+
 	Args CLIArgs{argc, argv};
 	Memory MemPool{2048, 16};
 
-	// Instantiate reader.
-	Dataset* lcmap = ReadData(CLIArgs.lcmap);
-	Dataset* dsm = ReadData(CLIArgs.dsm);
+	/* Load datasets. */
+	Dataset* lcmap = Dataset::ReadDataset(CLIArgs.lcmap)->SetTSize(100);
+	Dataset* dsm   = Dataset::ReadDataset(CLIArgs.dsm)->SetTSize(100);
+
+	/* Send datasets to transformation process. */
+
+	/* Debug logging. */
+	printf("%d\n", lcmap->GetRasterCount());
 	
 	printf("%d.%d.%d\n",
 			__MAPPOV_VERSION_MAJOR,
