@@ -1,5 +1,5 @@
 #include "version.h"
-#include "filesystem/read.h"
+#include "data/read.h"
 #include "config/args.h"
 #include "memory/memory.h"
 
@@ -10,14 +10,12 @@
 int __main(int argc, const char * argv[])
 {	
 	
-	Args cliargs{argc, argv};
-	Memory mempool{2048, 16};
+	Args CLIArgs{argc, argv};
+	Memory MemPool{2048, 16};
 
 	// Instantiate reader.
-	DatasetReader reader;
-
-	GDALDataset * map = reader.read(cliargs.lcmap);
-	GDALDataset * dem = reader.read(cliargs.dem);
+	Dataset* lcmap = ReadData(CLIArgs.lcmap);
+	Dataset* dsm = ReadData(CLIArgs.dsm);
 	
 	printf("%d.%d.%d\n",
 			__MAPPOV_VERSION_MAJOR,
