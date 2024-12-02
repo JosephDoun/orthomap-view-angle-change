@@ -17,7 +17,7 @@ struct Dataset: public GDALDataset
 	/* Tile size setter function. */
 	Dataset * SetTSize(uint16_t);
 
-	/* Read a raster from file. */
+	/* Read a raster from file into a dataset. */
 	static Dataset * ReadDataset(std::string /* File path. */ p);
 
 	friend void Transform(Dataset*, Dataset*, float, float);
