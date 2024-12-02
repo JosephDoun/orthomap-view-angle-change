@@ -11,9 +11,10 @@ Dataset * Dataset::ReadDataset(std::string p)
 }
 
 
-Dataset * Dataset::SetTSize(uint16_t t_size)
+Dataset * Dataset::SetTSize(uint16_t _t_size)
 {
-	t_size = t_size;
+	t_size = _t_size;
+	n_tiles = (GetRasterXSize() / t_size) * (GetRasterYSize() / t_size);
 	return this;
 }
 
