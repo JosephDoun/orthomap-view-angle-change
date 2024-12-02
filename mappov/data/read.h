@@ -11,6 +11,7 @@ struct Dataset: public GDALDataset
 {
 	private:
 	uint16_t t_size;
+	uint16_t n_tiles;
 	t_coords tile_coords(uint16_t);
 
 	public:
