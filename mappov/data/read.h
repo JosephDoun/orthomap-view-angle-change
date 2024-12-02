@@ -20,6 +20,8 @@ struct Dataset: public GDALDataset
 	/* Read a raster from file. */
 	static Dataset * ReadDataset(std::string /* File path. */ p);
 
+	friend void Transform(Dataset*, Dataset*, float, float);
+
 };
 
 
