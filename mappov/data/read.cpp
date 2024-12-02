@@ -37,3 +37,11 @@ t_coords Dataset::tile_coords(uint16_t index)
 
 	return offsets;
 }
+
+
+/* Tile fetching operator. */
+float * Dataset::operator[](uint16_t index)
+{
+	// TODO
+	return (float *) index;
+}
