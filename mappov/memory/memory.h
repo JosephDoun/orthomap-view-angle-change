@@ -1,16 +1,18 @@
 #ifndef __MEMORY_MODULE
 #define __MEMORY_MODULE
 
-#include <memory>
+// #include <memory>
 #include <vector>
 
 
 class Memory
 {
 	public:
-	Memory(size_t b_size /*block-size*/, size_t b_count /*number of blocks*/);
+	Memory() = default;
 	~Memory();
 
+	void   Setup(size_t /*block-size*/ 		 b_size,
+				 size_t /*number of blocks*/ b_count);
 	void * Allocate();
 	void   Deallocate(void*);
 
