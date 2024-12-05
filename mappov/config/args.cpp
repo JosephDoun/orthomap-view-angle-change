@@ -1,4 +1,5 @@
 #include "args.h"
+#include "version.h"
 #include <string.h>
 #include <stdexcept>
 
@@ -81,13 +82,16 @@ void Args::pargs()
 void Args::help()
 {
     printf(
-        "mappov help\n"
+        "mappov %d.%d.%d help\n"
         "Example use: mappov -lcmap <path/to/map> -dem <path/to/elevation> -z <zenith angle> -a <azimuth angle>\n"
         "\n"
         "-lcmap STR   path to a land cover map file.\n"
         "-dsm   STR   path to a digital surface model file.\n"
         "-z     float zenith angle to target.\n"
-        "-a     float azimuth angle to target.\n"
+        "-a     float azimuth angle to target.\n",
+        __MAPPOV_VERSION_MAJOR,
+        __MAPPOV_VERSION_MINOR,
+        __MAPPOV_VERSION_PATCH
     );
 }
 
