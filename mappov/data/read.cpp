@@ -33,19 +33,18 @@ Dataset::Dataset(std::string /* File path. */ path,
 
 
 // Read dataset at path and handle errors.
-Dataset * Dataset::ReadDataset(std::string p)
+GDALDatasetUniquePtr Dataset::ReadDataset(std::string p)
 {
+	/* Get GDALDatasetH internal handle. */
 	auto load = GDALOpen(p.c_str(), GA_ReadOnly);
-	if (load == NULL) throw std::invalid_argument(p.append(" is invalid."));
-	return (Dataset *) load;
-}
-
-
-Dataset * Dataset::SetTSize(uint16_t _t_size)
-{
-	t_size = _t_size;
-	n_tiles = (GetRasterXSize() / t_size) * (GetRasterYSize() / t_size);
-	return this;
+	
+	if (load == NULL)
+	{
+		throw std::invalid_argument(p.append(" is invalid."));
+	}
+	
+	/* Return specialized unique ptr. */
+	return GDALDatasetUniquePtr(GDALDataset::FromHandle(load));
 }
 
 
