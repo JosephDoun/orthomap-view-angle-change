@@ -11,6 +11,7 @@ add_subdirectory(errors)
 add_subdirectory(config)
 
 find_library(GDAL gdal)
+find_library(OPENBLAS openblas)
 
 target_link_libraries(mappov
 	${GDAL}
