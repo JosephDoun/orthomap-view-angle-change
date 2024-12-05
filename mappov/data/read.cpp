@@ -73,5 +73,27 @@ inline t_coords Dataset::tile_coords(uint16_t index)
 float * Dataset::operator[](uint16_t index)
 {
 	// TODO
-	return (float *) index;
+	void * buffer = mem.Allocate();
+
+	t_coords c = tile_coords(index);
+
+	CPLErr ErrNO = ds->RasterIO(GF_Read,
+								/* nXOff */ 					c.x,
+								/* nYOff */ 					c.y,
+								/* nXSize */ 					t_size_x,
+								/* nYSize */ 					t_size_y,
+			 					/* pData */ 					buffer,
+								/* nBufXSize (int) */ 			0,
+			 					/* nBufYSize (int) */ 			0,
+			 					/* eBufType (GDALDataType) */ 	GDT_Float32,
+			 					/* nBandCount (int) */ 			ds->GetRasterCount(),
+								/* panBandMap (int *) */ 		0,
+			 					/* nPixelSpace */ 				0,
+								/* nLineSpace */ 				0,
+								/* nBandSpace */ 				0,
+			 					/* GDALRasterIOExtraArg */ 		nullptr);
+
+	printf("CPLErr %d", ErrNO);
+
+	return (float *) buffer;
 }
