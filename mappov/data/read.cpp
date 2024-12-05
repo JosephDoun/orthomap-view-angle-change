@@ -1,5 +1,35 @@
 #include "read.h"
-#include <gdal/gdal_priv.h>
+
+
+Dataset::Dataset(std::string path) : n_tiles{1}
+{
+	/* GDALDataset. */
+	ds = ReadDataset(path);
+
+	/* Set default tile size. */
+	t_size_x = ds->GetRasterXSize();
+	t_size_y = ds->GetRasterYSize();
+
+	/* Setup memory instance. */
+	printf("%d %d\n", t_size_x * t_size_y * 8, n_tiles);
+	mem.Setup(t_size_x * t_size_y * 8, n_tiles);
+}
+
+
+Dataset::Dataset(std::string /* File path. */ path,
+				 uint16_t tsx, uint16_t tsy) :
+				 /* Tile sizes. */
+				 t_size_x(tsx), t_size_y(tsy)
+{
+	/* GDALDataset. */
+	ds = ReadDataset(path);
+
+	/* Tiles fitting horizontally times tiles fitting vertically. */
+	n_tiles = (ds->GetRasterXSize() / t_size_x) * (ds->GetRasterYSize() / t_size_x);
+
+	/* Setup memory instance. */
+	mem.Setup(t_size_x * t_size_y * 8, n_tiles);
+}
 
 
 // Read dataset at path and handle errors.
