@@ -13,11 +13,10 @@ int __main(int argc, const char * argv[])
 	GDALAllRegister();
 
 	Args CLIArgs{argc, argv};
-	Memory MemPool{2048, 16};
 
 	/* Load datasets. */
-	Dataset* lcmap = Dataset::ReadDataset(CLIArgs.lcmap)->SetTSize(100);
-	Dataset* dsm   = Dataset::ReadDataset(CLIArgs.dsm)->SetTSize(100);
+	std::unique_ptr<Dataset> lcmap(new Dataset{CLIArgs.lcmap});
+	std::unique_ptr<Dataset>   dsm(new Dataset{CLIArgs.dsm});
 
 	/* Send datasets to transformation process. */
 
