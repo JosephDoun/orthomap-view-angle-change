@@ -1,6 +1,6 @@
 data/
 build/
-
+*.aux.xml
 !mappov/data
 
 .vscode
