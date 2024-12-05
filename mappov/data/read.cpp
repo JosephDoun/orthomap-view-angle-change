@@ -51,18 +51,19 @@ GDALDatasetUniquePtr Dataset::ReadDataset(std::string p)
 /* Datatype containing x, y offset coordinates. */
 typedef struct _t_coords { uint16_t x; uint16_t y; } t_coords;
 
+
 /* Return the pxl coordinates of a tile. */
-t_coords Dataset::tile_coords(uint16_t index)
+inline t_coords Dataset::tile_coords(uint16_t index)
 {
 	t_coords offsets {};
 
 	/* X offset is i'th tile of row times tile size.
 	  (Reset if edge passed) */
-	offsets.x = index % (GetRasterXSize() / t_size) * t_size;
+	offsets.x = index % (ds->GetRasterXSize() / t_size_x) * t_size_x;
 
 	/* Y offset is i'th tile of column times tile size.
 	  (Increment if edge passed) */
-	offsets.y = index / (GetRasterXSize() / t_size) * t_size;
+	offsets.y = index / (ds->GetRasterXSize() / t_size_x) * t_size_y;
 
 	return offsets;
 }
