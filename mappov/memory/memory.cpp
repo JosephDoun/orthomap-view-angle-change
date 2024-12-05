@@ -1,21 +1,20 @@
 #include "memory.h"
+#include <cstdio>
 
 
-Memory::Memory(size_t b_size /*Block-size*/, size_t b_count /*Block-count*/)
+void Memory::Setup(size_t b_size /*Block-size*/, size_t b_count /*Block-count*/)
 {
-    /* 
-    Keep track of total distributed blocks and free blocks
-    separately.
-    */
+    /* Memory vectors are automatically resized by implementation. */
+    /* Keep track of total distributed blocks and free blocks separately. */
     for (int i = 0; i < b_count; i++) 
     {
         mem_blocks .push_back( new char[b_size] );
         free_blocks.push_back( mem_blocks.back() );
     }
-
 }
 
 
+/* Deallocate memory blocks. */
 Memory::~Memory()
 {
     for (auto block: mem_blocks)
@@ -25,6 +24,7 @@ Memory::~Memory()
 }
 
 
+/* Return an available memory block. */
 void * Memory::Allocate()
 {   
     void* block = free_blocks.back();
@@ -33,6 +33,7 @@ void * Memory::Allocate()
 }
 
 
+/* Reclaim a memory block. */
 void Memory::Deallocate(void * block)
 {
     free_blocks.push_back((char *) block);
@@ -69,7 +70,7 @@ class MemImplementation2
         delete[] data;
     }
 
-    void * operator new(size_t) {};
+    void * operator new(size_t) { return (void *) nullptr; };
     void operator delete(void *) {};
 
 };
