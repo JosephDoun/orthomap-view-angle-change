@@ -1,7 +1,7 @@
 #ifndef __MEMORY_MODULE
 #define __MEMORY_MODULE
 
-// #include <memory>
+#include <memory>
 #include <vector>
 
 

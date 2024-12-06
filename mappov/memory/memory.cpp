@@ -4,12 +4,15 @@
 
 void Memory::Setup(size_t b_size /*Block-size*/, size_t b_count /*Block-count*/)
 {
-    /* Memory vectors are automatically resized by implementation. */
-    /* Keep track of total distributed blocks and free blocks separately. */
-    for (int i = 0; i < b_count; i++) 
+    if (mem_blocks.empty())
     {
-        mem_blocks .push_back( new char[b_size] );
-        free_blocks.push_back( mem_blocks.back() );
+        /* Memory vectors are automatically resized by implementation. */
+        /* Keep track of total distributed blocks and free blocks separately. */
+        for (int i = 0; i < b_count; i++) 
+        {
+            mem_blocks .push_back( new char[b_size] );
+            free_blocks.push_back( mem_blocks.back() );
+        }
     }
 }
 

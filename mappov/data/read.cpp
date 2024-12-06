@@ -9,17 +9,13 @@ Dataset::Dataset(std::string path) : n_tiles{1}
 	/* Set default tile size. */
 	t_size_x = ds->GetRasterXSize();
 	t_size_y = ds->GetRasterYSize();
-
-	/* Setup memory instance. */
-	printf("%d %d\n", t_size_x * t_size_y * 8, n_tiles);
-	mem.Setup(t_size_x * t_size_y * 8, n_tiles);
 }
 
 
 Dataset::Dataset(std::string /* File path. */ path,
 				 uint16_t tsx, uint16_t tsy) :
 				 /* Tile sizes. */
-				 t_size_x(tsx), t_size_y(tsy)
+				 t_size_x(tsx), t_size_y(tsy), mem{main_mem}
 {
 	/* GDALDataset. */
 	ds = ReadDataset(path);
