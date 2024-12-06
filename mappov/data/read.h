@@ -14,8 +14,9 @@ struct Dataset
 	private:
 	/* GDALDataset */
 	GDALDatasetUniquePtr ds;
-	Memory mem;
-	/* fetch-tile dimensions. */
+	/* Reference to memory pool. */
+	Memory &mem;
+	/* Tile dimensions. */
 	int t_size_x;
 	int t_size_y;
 	/* Number of tiles in dataset. */
@@ -26,15 +27,12 @@ struct Dataset
 	public:
 	Dataset(std::string);
 	Dataset(std::string, uint16_t, uint16_t);
-	
+	/* Fetch i-th tile of dataset. */
 	float * operator[](uint16_t);
-
 	/* Read a raster from file into a dataset. */
 	static GDALDatasetUniquePtr ReadDataset(std::string /* File path. */ p);
-
 	/* Friend functions. */
 	friend void Transform(Dataset*, Dataset*, float, float);
-
 };
 
 
