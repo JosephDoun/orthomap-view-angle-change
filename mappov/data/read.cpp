@@ -1,7 +1,14 @@
 #include "read.h"
 
 
-Dataset::Dataset(std::string path) : n_tiles{1}
+extern Memory main_mem;
+
+
+Dataset::Dataset(std::string path) :
+/* Single tile default. */
+n_tiles{1},
+/* Memory. */
+mem{main_mem}
 {
 	/* GDALDataset. */
 	ds = ReadDataset(path);
@@ -9,22 +16,29 @@ Dataset::Dataset(std::string path) : n_tiles{1}
 	/* Set default tile size. */
 	t_size_x = ds->GetRasterXSize();
 	t_size_y = ds->GetRasterYSize();
+
+	mem.Setup(t_size_x *
+			  t_size_y *
+			  GDALGetDataTypeSizeBytes(GDT_Float32),
+			  n_tiles);
 }
 
 
-Dataset::Dataset(std::string /* File path. */ path,
-				 uint16_t tsx, uint16_t tsy) :
-				 /* Tile sizes. */
-				 t_size_x(tsx), t_size_y(tsy), mem{main_mem}
+Dataset::Dataset(std::string /* File path. */  path,
+				 uint16_t 	 /* tile width */  tsx,
+				 uint16_t 	 /* tile height */ tsy) :
+/* Tile sizes. */
+t_size_x(tsx),
+t_size_y(tsy),
+/* Memory. */
+mem{main_mem}
 {
 	/* GDALDataset. */
 	ds = ReadDataset(path);
 
 	/* Tiles fitting horizontally times tiles fitting vertically. */
-	n_tiles = (ds->GetRasterXSize() / t_size_x) * (ds->GetRasterYSize() / t_size_x);
-
-	/* Setup memory instance. */
-	mem.Setup(t_size_x * t_size_y * 8, n_tiles);
+	n_tiles = (ds->GetRasterXSize() / t_size_x) *
+			  (ds->GetRasterYSize() / t_size_y);
 }
 
 

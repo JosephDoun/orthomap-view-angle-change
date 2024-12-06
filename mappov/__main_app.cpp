@@ -1,9 +1,12 @@
-#include "version.h"
 #include "data/read.h"
 #include "config/args.h"
 #include "memory/memory.h"
-
+#include "geometry/transformations.h"
 #include <cstdio>
+
+
+/* Global memory instance. */
+Memory main_mem;
 
 
 /* Application entry point. */
@@ -13,7 +16,7 @@ int __main(int argc, const char * argv[])
 	GDALAllRegister();
 
 	Args CLIArgs{argc, argv};
-
+		
 	/* Load datasets. */
 	std::unique_ptr<Dataset> lcmap(new Dataset{CLIArgs.lcmap});
 	std::unique_ptr<Dataset>   dsm(new Dataset{CLIArgs.dsm});
@@ -28,6 +31,6 @@ int __main(int argc, const char * argv[])
 			__MAPPOV_VERSION_MINOR,
 			__MAPPOV_VERSION_PATCH);
 
-	return 0;
+	return EXIT_SUCCESS;
 }
 
