@@ -3,31 +3,9 @@
 #include <string.h>
 #include <stdexcept>
 
-# define SMESSAGE(var, message)\
-    if (var.empty())\
-    {\
-        printf(message);\
-        printf("\n");\
-        abort();\
-    }
-
-# define FMESSAGE(var, message)\
-    if (var == 0)\
-    {\
-        printf(message);\
-        printf("\n");\
-        abort();\
-    }
-
-# define VALID_ARGS(expression)\
-    try\
-    {\
-        expression;\
-    }\
-    catch (...)\
-    {\
-        this->abort();\
-    }
+# define PRINT_N_ABORT(message) printf(message), printf("\n"), this->abort();
+# define CHECKEMPTY(expr, message) if (expr) PRINT_N_ABORT(message)
+# define VALID_ARGS(expression) try{expression;}catch(...){this->abort();}
 
 
 Args::Args(int argc, const char * argv[])
@@ -42,13 +20,14 @@ Args::Args(int argc, const char * argv[])
         if (arg == "-a") VALID_ARGS(float_args["a"] = std::stof(argv[++i]))
     }
 
-    SMESSAGE(lcmap, "Please provide a path to a land cover map.\n");
-    SMESSAGE(dsm, "Please provide a path to a digital surface model.\n");
-    FMESSAGE(zenith, "Please provide target zenith angle.\n");
-    FMESSAGE(azimuth, "Please provide target azimuth angle.\n");
+    CHECKEMPTY(lcmap.empty(), "Please provide a path to a land cover map.\n");
+    CHECKEMPTY(dsm.empty(), "Please provide a path to a digital surface model.\n");
+    CHECKEMPTY(zenith == 0, "Please provide target zenith angle.\n");
+    CHECKEMPTY(azimuth == 0, "Please provide target azimuth angle.\n");
 };
 
 
+/* Print arg names and their values. */
 void Args::pargs()
 {
     for (auto const & kv: string_args)
@@ -63,6 +42,7 @@ void Args::pargs()
 }
 
 
+/* Print help message. */
 void Args::help()
 {
     printf(
@@ -81,6 +61,7 @@ void Args::help()
 }
 
 
+/* Print help message and throw. */
 void Args::abort()
 {
     help();
