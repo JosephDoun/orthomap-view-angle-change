@@ -17,7 +17,7 @@ target_link_libraries(mappov
 	${GDAL}
 	data
 	memory
-	# geometry
+	geometry
 	# errors
 	config
 )
