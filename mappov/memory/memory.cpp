@@ -1,5 +1,6 @@
 #include "memory.h"
 #include <cstdio>
+#include <stdexcept>
 
 
 void Memory::Setup(size_t b_size /*Block-size*/, size_t b_count /*Block-count*/)
