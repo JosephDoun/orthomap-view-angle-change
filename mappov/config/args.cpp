@@ -42,22 +42,36 @@ void Args::pargs()
 }
 
 
-/* Print help message. */
-void Args::help()
+std::string Args::help_msg()
 {
-    printf(
+    /* Template text for formatting. */
+    char tmp[] =
+        "\n"
         "mappov %d.%d.%d\n"
         "Example use: mappov -lcmap <filepath> -dem <filepath> -z <float> -a <float>\n"
         "\n"
         "-lcmap STR   path to a land cover map file.\n"
         "-dsm   STR   path to a digital surface model file.\n"
         "-z     float zenith angle to target.\n"
-        "-a     float azimuth angle to target.\n"
-        "\n",
-        __MAPPOV_VERSION_MAJOR,
-        __MAPPOV_VERSION_MINOR,
-        __MAPPOV_VERSION_PATCH
-    );
+        "-a     float azimuth angle to target.\n";
+
+    /* Output message buffer. */
+    char msg[sizeof(tmp) + 1024];
+
+    /* Format string template. */
+    snprintf(msg, sizeof(tmp) + 1024, tmp,
+            __MAPPOV_VERSION_MAJOR,
+            __MAPPOV_VERSION_MINOR,
+            __MAPPOV_VERSION_PATCH);
+
+    return std::string(msg);
+}
+
+
+/* Print help message. */
+void Args::help()
+{
+    printf(help_msg().c_str());
 }
 
 

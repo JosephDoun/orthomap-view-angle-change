@@ -11,22 +11,23 @@ class Args
 {
     private:
 
-    std::map<std::string, std::string> sargs{{"lcmap", ""},
-                                             {"dsm",   ""}};
+    std::map<std::string, std::string> string_args{{"lcmap", ""},
+                                                   {"dsm",   ""}};
 
-    std::map<std::string, float> fargs{{"z", NULL},
-                                       {"a", NULL}};
+    std::map<std::string, float> float_args{{"z", NULL},
+                                            {"a", NULL}};
     void help();
-    void abort();
+    std::string help_msg();
+    void abort(std::string);
     void pargs();
     
     public:
     Args(int argc, const char * argv[]);
 
-    const std::string &lcmap = sargs["lcmap"];
-    const std::string &dsm = sargs["dsm"];
-    const float &zenith = fargs["z"];
-    const float &azimuth = fargs["a"];
+    const std::string &lcmap = string_args["lcmap"];
+    const std::string &dsm = string_args["dsm"];
+    const float &zenith = float_args["z"];
+    const float &azimuth = float_args["a"];
 };
 
 # endif
