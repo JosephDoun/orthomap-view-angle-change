@@ -19,14 +19,13 @@ Dataset::Dataset(std::string /* File path. */  path,
 				 uint16_t 	 /* tile width */  tsx,
 				 uint16_t 	 /* tile height */ tsy,
 				 Memory 	 /* Memory inst */ &m) :
-/* Tile sizes. */
-t_size_x(tsx),
-t_size_y(tsy),
 /* Memory. */
 memory{m}
 {
 	/* GDALDataset. */
 	ds = ReadDataset(path);
+	t_size_x = MIN(tsx, ds->GetRasterXSize());
+	t_size_y = MIN(tsy, ds->GetRasterYSize());
 
 	/* Tiles fitting horizontally times tiles fitting vertically. */
 	n_tiles = (ds->GetRasterXSize() / t_size_x) *
@@ -95,7 +94,7 @@ float * Dataset::operator[](uint16_t index)
 								/* nBandSpace */ 				0,
 			 					/* GDALRasterIOExtraArg */ 		nullptr);
 
-	printf("CPLErr %d", ErrNO);
+	printf("CPLErr %d\n", ErrNO);
 
 	return (float *) buffer;
 }
