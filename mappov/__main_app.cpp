@@ -15,16 +15,17 @@ int __main(int argc, const char * argv[])
 	Memory main_mem;
 
 	/* Setup necessary memory allocations. */
-	main_mem.Setup(100 * 100 * GDALGetDataTypeSizeBytes(GDT_Float32), 10);
+	main_mem.Setup(100 * 100 * GDALGetDataTypeSizeBytes(GDT_Float32), 1);
 
 	/* Load datasets. */
 	std::unique_ptr<Dataset> lcmap(new Dataset{CLIArgs.lcmap, 100, 100, main_mem});
 	std::unique_ptr<Dataset>   dsm(new Dataset{CLIArgs.dsm, 100, 100, main_mem});
 
 	/* Send datasets to transformation process. */
+	Transform(lcmap.get(), dsm.get(), CLIArgs.zenith, CLIArgs.azimuth);
 
 	/* Debug logging. */
-	printf("%d, %d\n", sizeof(lcmap), sizeof(dsm));
+	printf("%d\n", GDALGetDataTypeSizeBytes(GDT_Float32));
 	
 	// printf("%d, %d\n", lcmap->GetRasterXSize(), dsm->GetRasterYSize());
 
