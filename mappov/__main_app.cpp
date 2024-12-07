@@ -5,10 +5,6 @@
 #include <cstdio>
 
 
-/* Global memory instance. */
-Memory main_mem;
-
-
 /* Application entry point. */
 int __main(int argc, const char * argv[])
 {
@@ -16,20 +12,21 @@ int __main(int argc, const char * argv[])
 	GDALAllRegister();
 
 	Args CLIArgs{argc, argv};
-		
+	Memory main_mem;
+
+	/* Setup necessary memory allocations. */
+	main_mem.Setup(100 * 100 * GDALGetDataTypeSizeBytes(GDT_Float32), 10);
+
 	/* Load datasets. */
-	std::unique_ptr<Dataset> lcmap(new Dataset{CLIArgs.lcmap});
-	std::unique_ptr<Dataset>   dsm(new Dataset{CLIArgs.dsm});
+	std::unique_ptr<Dataset> lcmap(new Dataset{CLIArgs.lcmap, 100, 100, main_mem});
+	std::unique_ptr<Dataset>   dsm(new Dataset{CLIArgs.dsm, 100, 100, main_mem});
 
 	/* Send datasets to transformation process. */
 
 	/* Debug logging. */
-	printf("%d\n", lcmap->GetRasterCount());
+	printf("%d, %d\n", sizeof(lcmap), sizeof(dsm));
 	
-	printf("%d.%d.%d\n",
-			__MAPPOV_VERSION_MAJOR,
-			__MAPPOV_VERSION_MINOR,
-			__MAPPOV_VERSION_PATCH);
+	// printf("%d, %d\n", lcmap->GetRasterXSize(), dsm->GetRasterYSize());
 
 	return EXIT_SUCCESS;
 }

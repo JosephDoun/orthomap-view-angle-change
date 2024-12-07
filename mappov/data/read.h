@@ -14,8 +14,7 @@ struct Dataset
 	private:
 	/* GDALDataset */
 	GDALDatasetUniquePtr ds;
-	/* Reference to memory pool. */
-	Memory &mem;
+	Memory &memory;
 	/* Tile dimensions. */
 	int t_size_x;
 	int t_size_y;
@@ -25,8 +24,8 @@ struct Dataset
 	t_coords tile_coords(uint16_t);
 
 	public:
-	Dataset(std::string);
-	Dataset(std::string, uint16_t, uint16_t);
+	Dataset(std::string, Memory&);
+	Dataset(std::string, uint16_t, uint16_t, Memory&);
 	/* Fetch i-th tile of dataset. */
 	float * operator[](uint16_t);
 	/* Read a raster from file into a dataset. */

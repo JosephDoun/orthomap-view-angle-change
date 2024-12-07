@@ -1,14 +1,10 @@
 #include "read.h"
 
 
-extern Memory main_mem;
-
-
-Dataset::Dataset(std::string path) :
+Dataset::Dataset(std::string path, Memory &m) :
 /* Single tile default. */
 n_tiles{1},
-/* Memory. */
-mem{main_mem}
+memory{m}
 {
 	/* GDALDataset. */
 	ds = ReadDataset(path);
@@ -16,22 +12,18 @@ mem{main_mem}
 	/* Set default tile size. */
 	t_size_x = ds->GetRasterXSize();
 	t_size_y = ds->GetRasterYSize();
-
-	mem.Setup(t_size_x *
-			  t_size_y *
-			  GDALGetDataTypeSizeBytes(GDT_Float32),
-			  n_tiles);
 }
 
 
 Dataset::Dataset(std::string /* File path. */  path,
 				 uint16_t 	 /* tile width */  tsx,
-				 uint16_t 	 /* tile height */ tsy) :
+				 uint16_t 	 /* tile height */ tsy,
+				 Memory 	 /* Memory inst */ &m) :
 /* Tile sizes. */
 t_size_x(tsx),
 t_size_y(tsy),
 /* Memory. */
-mem{main_mem}
+memory{m}
 {
 	/* GDALDataset. */
 	ds = ReadDataset(path);
@@ -82,8 +74,8 @@ inline t_coords Dataset::tile_coords(uint16_t index)
 /* Tile fetching operator. */
 float * Dataset::operator[](uint16_t index)
 {
-	// TODO
-	void * buffer = mem.Allocate();
+	/* Get preallocated memory block. */
+	void * buffer = memory.Allocate();
 
 	t_coords c = tile_coords(index);
 
