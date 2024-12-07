@@ -1,6 +1,7 @@
-# Orthomap View Angle Change
-Shifts land cover orthomap viewing angle, using a high resolution DSM to estimate building wall exposure to sensing angle.
+# Mappov
 
+Shift the point-of-view angle of a land cover map using a digital surface model.
+Can provide information on building wall exposure during Land Surface Temperature acquisitions.
 
 _Migrating to C++ / Under development._
 
