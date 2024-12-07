@@ -3,9 +3,9 @@
 #include <string.h>
 #include <stdexcept>
 
-# define PRINT_N_ABORT(message) printf(message), printf("\n"), this->abort();
+# define PRINT_N_ABORT(message) this->abort(message);
 # define CHECKEMPTY(expr, message) if (expr) PRINT_N_ABORT(message)
-# define VALID_ARGS(expression) try{expression;}catch(...){this->abort();}
+# define VALID_ARGS(expression) try{expression;}catch(...){this->abort("");}
 
 
 Args::Args(int argc, const char * argv[])
@@ -76,8 +76,9 @@ void Args::help()
 
 
 /* Print help message and throw. */
-void Args::abort()
+void Args::abort(std::string message)
 {
-    help();
-    throw std::invalid_argument("Invalid arguments.");
+    static std::string error{"Invalid arguments.\n"};
+    throw std::invalid_argument(error.append(message)
+                                     .append(help_msg()));
 }
