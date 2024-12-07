@@ -30,8 +30,13 @@ Memory::~Memory()
 /* Return an available memory block. */
 void * Memory::Allocate()
 {   
-    void* block = free_blocks.back();
+    // Can throw as single-threaded program.
+    // TODO modify to wait for multi-threaded execution.
+    if (free_blocks.empty()) throw std::runtime_error("Out of memory.");
+
+    void * block = free_blocks.back();
     free_blocks.pop_back();
+
     return block;
 }
 
