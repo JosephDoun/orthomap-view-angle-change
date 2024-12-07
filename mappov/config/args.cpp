@@ -19,6 +19,16 @@
         abort();\
     }
 
+# define VALID_ARGS(expression)\
+    try\
+    {\
+        expression;\
+    }\
+    catch (...)\
+    {\
+        this->abort();\
+    }
+
 
 Args::Args(int argc, const char * argv[])
 {
@@ -26,36 +36,10 @@ Args::Args(int argc, const char * argv[])
     {   
         std::string arg{argv[i]};
 
-        if (arg == "-lcmap")
-        {
-            sargs["lcmap"] = std::string(argv[++i]);
-        }
-        if (arg == "-dsm")
-        {
-            sargs["dsm"] = std::string(argv[++i]);
-        }
-        if (arg == "-z")
-        {
-            try
-            {
-                fargs["z"] = std::stof(argv[++i]);
-            }
-            catch (...)
-            {
-                abort();
-            }
-        }
-        if (arg == "-a")
-        {
-            try
-            {
-                fargs["a"] = std::stof(argv[++i]);
-            }
-            catch (...)
-            {
-                abort();
-            }
-        }
+        if (arg == "-lcmap") string_args["lcmap"] = std::string(argv[++i]);
+        if (arg == "-dsm") string_args["dsm"] = std::string(argv[++i]);
+        if (arg == "-z") VALID_ARGS(float_args["z"] = std::stof(argv[++i]))
+        if (arg == "-a") VALID_ARGS(float_args["a"] = std::stof(argv[++i]))
     }
 
     SMESSAGE(lcmap, "Please provide a path to a land cover map.\n");
@@ -67,12 +51,12 @@ Args::Args(int argc, const char * argv[])
 
 void Args::pargs()
 {
-    for (auto const & kv: sargs)
+    for (auto const & kv: string_args)
     {
         printf("%s: %s\n", kv.first.c_str(), kv.second.c_str());
     }
 
-    for (auto const & kv: fargs)
+    for (auto const & kv: float_args)
     {
         printf("%s: %f\n", kv.first.c_str(), kv.second);
     }
@@ -82,13 +66,14 @@ void Args::pargs()
 void Args::help()
 {
     printf(
-        "mappov %d.%d.%d help\n"
-        "Example use: mappov -lcmap <path/to/map> -dem <path/to/elevation> -z <zenith angle> -a <azimuth angle>\n"
+        "mappov %d.%d.%d\n"
+        "Example use: mappov -lcmap <filepath> -dem <filepath> -z <float> -a <float>\n"
         "\n"
         "-lcmap STR   path to a land cover map file.\n"
         "-dsm   STR   path to a digital surface model file.\n"
         "-z     float zenith angle to target.\n"
-        "-a     float azimuth angle to target.\n",
+        "-a     float azimuth angle to target.\n"
+        "\n",
         __MAPPOV_VERSION_MAJOR,
         __MAPPOV_VERSION_MINOR,
         __MAPPOV_VERSION_PATCH
