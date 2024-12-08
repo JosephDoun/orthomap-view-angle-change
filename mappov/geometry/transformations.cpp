@@ -12,9 +12,11 @@ This function should encapsulate the complete action of geometric transformation
 */
 void Transform(Dataset * lcmap, Dataset * dsm, float zenith, float azimuth)
 {
-    const float * Affine = GetAffineMatrix(zenith, azimuth);
     printf("Entered transform.\n");
     printf("tile num: %d\n", lcmap->n_tiles);
+
+    aff_mat a_mat { GetAffineMatrix(zenith, azimuth) };
+    printf("Got affine matrix of size %d.\n", sizeof(a_mat));
 
     for (uint16_t i {0}; i < lcmap->n_tiles; i++)
     {
@@ -26,14 +28,12 @@ void Transform(Dataset * lcmap, Dataset * dsm, float zenith, float azimuth)
            5. Transform indices matrix.
            6. Resample lcmap.
         */
-       printf("Looped in transform.\n");
-       float * lcover = (*lcmap)[i];
-       printf("Got cover tile.\n");
-       float * elev   = ( *dsm )[i];
-       printf("Got elevation tile.\n");
-       aff_mat affine = GetAffineMatrix(zenith, azimuth);
-       printf("Got affine matrix.\n");
-       // indices.
+        printf("Looped in transform.\n");
+        float * lcover = (*lcmap)[i];
+        printf("Got cover tile.\n");
+        float * elev   = ( *dsm )[i];
+        printf("Got elevation tile.\n");
+        // indices.
     
     }
 
@@ -50,6 +50,7 @@ aff_mat GetAffineMatrix(float zenith, float azimuth)
     static const float Affine [3 * 3] { 1., 0., 0.,
                                         0., 1., 0.,
                                         0., 0., 1. };
+    printf("Constructed affine matrix.\n");
     return Affine;
 }
 

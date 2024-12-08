@@ -15,11 +15,11 @@ int __main(int argc, const char * argv[])
 	Memory main_mem;
 
 	/* Setup necessary memory allocations. */
-	main_mem.Setup(100 * 100 * GDALGetDataTypeSizeBytes(GDT_Float32), 1);
+	main_mem.Setup(100 * 100 * GDALGetDataTypeSizeBytes(GDT_Float32), 10);
 
 	/* Load datasets. */
-	std::unique_ptr<Dataset> lcmap(new Dataset{CLIArgs.lcmap, 100, 100, main_mem});
-	std::unique_ptr<Dataset>   dsm(new Dataset{CLIArgs.dsm, 100, 100, main_mem});
+	std::unique_ptr<Dataset> lcmap(new Dataset{CLIArgs.lcmap, 5, 5, main_mem});
+	std::unique_ptr<Dataset>   dsm(new Dataset{CLIArgs.dsm, 5, 5, main_mem});
 
 	/* Send datasets to transformation process. */
 	Transform(lcmap.get(), dsm.get(), CLIArgs.zenith, CLIArgs.azimuth);
