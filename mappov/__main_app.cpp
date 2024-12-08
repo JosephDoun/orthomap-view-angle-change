@@ -22,7 +22,7 @@ int __main(int argc, const char * argv[])
 	std::unique_ptr<Dataset>   dsm(new Dataset{CLIArgs.dsm, 5, 5, main_mem});
 
 	/* Send datasets to transformation process. */
-	Transform(lcmap.get(), dsm.get(), CLIArgs.zenith, CLIArgs.azimuth);
+	Transform(lcmap.get(), dsm.get(), CLIArgs.zenith, CLIArgs.azimuth, main_mem);
 
 	/* Debug logging. */
 	printf("%d\n", GDALGetDataTypeSizeBytes(GDT_Float32));

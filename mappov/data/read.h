@@ -31,7 +31,8 @@ struct Dataset
 	/* Read a raster from file into a dataset. */
 	static GDALDatasetUniquePtr ReadDataset(std::string /* File path. */ p);
 	/* Friend functions. */
-	friend void Transform(Dataset*, Dataset*, float, float);
+	friend void Transform(const Dataset*, const Dataset*,
+						  const float, const float, Memory&);
 };
 
 

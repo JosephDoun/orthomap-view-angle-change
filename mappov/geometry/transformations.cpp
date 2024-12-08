@@ -10,13 +10,11 @@ typedef const float * aff_mat;
 /*
 This function should encapsulate the complete action of geometric transformation.
 */
-void Transform(Dataset * lcmap, Dataset * dsm, float zenith, float azimuth)
+void Transform(const Dataset * lcmap, const Dataset * dsm,
+               const float zenith, const float azimuth, Memory& m)
 {
-    printf("Entered transform.\n");
-    printf("tile num: %d\n", lcmap->n_tiles);
-
+    /* Transformation matrix. */
     aff_mat a_mat { GetAffineMatrix(zenith, azimuth) };
-    printf("Got affine matrix of size %d.\n", sizeof(a_mat));
 
     for (uint16_t i {0}; i < lcmap->n_tiles; i++)
     {
@@ -50,7 +48,6 @@ aff_mat GetAffineMatrix(float zenith, float azimuth)
     static const float Affine [3 * 3] { 1., 0., 0.,
                                         0., 1., 0.,
                                         0., 0., 1. };
-    printf("Constructed affine matrix.\n");
     return Affine;
 }
 
