@@ -21,7 +21,7 @@ void Memory::Setup(size_t b_size /*Block-size*/, size_t b_count /*Block-count*/)
 /* Deallocate memory blocks. */
 Memory::~Memory()
 {
-    for (auto block: mem_blocks)
+    for (char * block: mem_blocks)
     {
         delete[] block;
     }

@@ -1,7 +1,6 @@
 
 #include <openblas/cblas.h>
 #include "transformations.h"
-#include "../memory/memory.h"
 #include "../data/read.h"
 
 
@@ -21,18 +20,23 @@ void Transform(const Dataset * lcmap, const Dataset * dsm,
         /* Repeat transformation over each tile. 
            1. Read lcmap tile.
            2. Read dsm tile.
-           3. Construct affine transformation matrix.
-           4. Construct indices matrix of dsm w/ z.
-           5. Transform indices matrix.
-           6. Resample lcmap.
+           3. Construct indices matrix of dsm w/ z.
+           4. Transform indices matrix.
+           5. Resample lcmap buffer.
+           6. Write buffer to output.
         */
-        printf("Looped in transform.\n");
+        /* Land cover map tile. */
         float * lcover = (*lcmap)[i];
-        printf("Got cover tile.\n");
-        float * elev   = ( *dsm )[i];
-        printf("Got elevation tile.\n");
-        // indices.
-    
+        /* Surface map tile. */
+        float * height = ( *dsm )[i];
+        /* Coordinates buffer. */
+        float * xyz = (float *) m.Allocate();
+        WriteXYZMatrix(xyz, height, dsm->t_size_x, dsm->t_size_y);
+        
+        m.Deallocate(lcover);
+        m.Deallocate(height);
+        m.Deallocate(xyz);
+
     }
 
     // cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans,

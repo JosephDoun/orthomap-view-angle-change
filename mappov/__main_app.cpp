@@ -14,12 +14,21 @@ int __main(int argc, const char * argv[])
 	Args CLIArgs{argc, argv};
 	Memory main_mem;
 
-	/* Setup necessary memory allocations. */
-	main_mem.Setup(100 * 100 * GDALGetDataTypeSizeBytes(GDT_Float32), 10);
+	/* Tile dimensions for processing.
+	   Should be set via command line. */
+	uint16_t t_x_size{170}, t_y_size{150};
+
+	/*
+	Setup necessary memory allocations multiple of 32 bytes.
+	*/
+	main_mem.Setup(t_x_size * t_y_size * 32, 3);
 
 	/* Load datasets. */
-	std::unique_ptr<Dataset> lcmap(new Dataset{CLIArgs.lcmap, 5, 5, main_mem});
-	std::unique_ptr<Dataset>   dsm(new Dataset{CLIArgs.dsm, 5, 5, main_mem});
+	std::unique_ptr<const Dataset>
+	lcmap(new Dataset{CLIArgs.lcmap, t_x_size, t_y_size, main_mem});
+	
+	std::unique_ptr<const Dataset>
+	dsm(new Dataset{CLIArgs.dsm, t_x_size, t_y_size, main_mem});
 
 	/* Send datasets to transformation process. */
 	Transform(lcmap.get(), dsm.get(), CLIArgs.zenith, CLIArgs.azimuth, main_mem);
