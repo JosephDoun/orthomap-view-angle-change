@@ -52,5 +52,24 @@ aff_mat GetAffineMatrix(float zenith, float azimuth)
 }
 
 
-/* Return a location index matrix with dimensions Nx3 */
-float * constructIdxMatrix() { return NULL; }
+/* Fill xyz grid location matrix of dimensions XxYx3 */
+void WriteXYZMatrix(float * buffer, float * height, int xsize, int ysize)
+{    
+    /* Row wise iteration. */
+    for (int y {0}; y < ysize; y++)
+    {
+        /* Column wise iteration. */
+        for (int x {0}; x < ysize; x++)
+        {
+            /* 
+            Total buffer array length N = 3 * xsize * ysize.
+            */
+            *buffer = /* X grid coord. */   x;
+            ++buffer;
+            *buffer = /* Y grid coord. */   y;
+            ++buffer;
+            *buffer = height[/* x, y position in dsm */ x /* TODO */];
+            ++buffer;
+        }
+    }
+}
