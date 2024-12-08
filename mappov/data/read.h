@@ -27,7 +27,7 @@ struct Dataset
 	Dataset(std::string, Memory&);
 	Dataset(std::string, uint16_t, uint16_t, Memory&);
 	/* Fetch i-th tile of dataset. */
-	float * operator[](uint16_t);
+	float * operator[](uint16_t) const;
 	/* Read a raster from file into a dataset. */
 	static GDALDatasetUniquePtr ReadDataset(std::string /* File path. */ p);
 	/* Friend functions. */

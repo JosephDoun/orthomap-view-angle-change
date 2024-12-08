@@ -71,7 +71,7 @@ inline t_coords Dataset::tile_coords(uint16_t index)
 
 
 /* Tile fetching operator. */
-float * Dataset::operator[](uint16_t index)
+float * Dataset::operator[](uint16_t index) const
 {
 	/* Get preallocated memory block. */
 	void * buffer = memory.Allocate();
