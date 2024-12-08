@@ -54,7 +54,7 @@ typedef struct _t_coords { uint16_t x; uint16_t y; } t_coords;
 
 
 /* Return the pxl coordinates of a tile. */
-inline t_coords Dataset::tile_coords(uint16_t index)
+inline t_coords Dataset::tile_coords(uint16_t index) const
 {
 	t_coords offsets {};
 

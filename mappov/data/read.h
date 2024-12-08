@@ -21,7 +21,7 @@ struct Dataset
 	/* Number of tiles in dataset. */
 	int n_tiles;
 	/* Function returning tile coordinates in pixels. */
-	t_coords tile_coords(uint16_t);
+	t_coords tile_coords(uint16_t) const;
 
 	public:
 	Dataset(std::string, Memory&);
